@@ -66,3 +66,21 @@ fullData <- left_join(metadata, combData, by="SampleID")
 
 # BONUS CHALLENGE: Load files using Shiny GUI
 
+
+
+
+#### OVERALL APP FUNCTIONALITY #####
+
+# LOAD DATA
+# QUALITY CONTROL CHECK DATA
+# NORMALIZE DATA
+#   - house keeping gene normalization
+#   - TMM normalization
+# Differentially Expressed Gene analysis
+# Principal Component Analysis (PCA)
+# Heat Maps
+# 
+
+
+
+
