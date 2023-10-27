@@ -10,7 +10,7 @@ library(readxl)
 #### 1st step: Import Data #####
 
 # locate files
-setwd("C:\\Users\\smadim\\Documents\\GitHub\\Maleks_qPCR_Pipeline\\Practice Data\\Laura's Data")
+setwd("Practice Data/2023-10-12 Practice/")
 allFiles<-list.files()
 metaDataFileName <- "metadata.xlsx"
 dataFiles <- allFiles[!allFiles %in% metaDataFileName]
@@ -35,10 +35,7 @@ rownames(combData)<-combData$'Well Name'
 combData <- combData %>%
   select(-"Well Name") %>%
   t()
-    #combData["Well Name"]
-    #combData$`Well Name`  
-
-
+  
 # combine with metadata
 # put sample names back into a column
 combData <- data.frame(SampleID=rownames(combData), combData)
@@ -46,17 +43,10 @@ combData <- data.frame(SampleID=rownames(combData), combData)
 # left_join with metadata
 fullData <- left_join(metadata, combData, by="SampleID")
 
-#### Line 50-59 will only work for Laura's data ####
-#Deleting certain rows based on conditions (row name in this case) (ADDED)
-fullData2 <- fullData[!(fullData$SampleID=="WL6_4" | fullData$SampleID=="WL8_4"), ]
 
+#combData["Well Name"]
+#combData$`Well Name`
 
-#Export data frame into a certain Excel sheet (Append is needed so it doesn't overwrite doc) (ADDED)
-install.packages("xlsx")
-library(xlsx)
-fullData <- as.data.frame(fullData)
-write.xlsx(fullData, file="metadata.xlsx", sheetName="Sheet2", row.names=FALSE, append = TRUE)
-write.xlsx(fullData2, file="metadata.xlsx", sheetName="Sheet3", row.names=FALSE, append = TRUE)
 
 
 
@@ -64,9 +54,33 @@ write.xlsx(fullData2, file="metadata.xlsx", sheetName="Sheet3", row.names=FALSE,
 #combinedData <- left_join(rawData[[1]][c("Well Name","Ct (dRn)")], rawData[[2]][c("Well Name","Ct (dRn)")], by = c("Well Name"))
 
 
-#This won't work if there's any other files than the metadata and txt files 
-#You can NOT have metadata excel file open cause it's basically a hidden file
+
+
+# A) combine all "rawData files"
+        # tidyverse "join" using "Well Name" column
+        # transpose?
+
+# B) "map" them to the metadata
+        # join using "SampleID" column (with some trickery)
 
 
 # BONUS CHALLENGE: Load files using Shiny GUI
-#Get this to work on Rshiny 
+
+
+
+
+#### OVERALL APP FUNCTIONALITY #####
+
+# LOAD DATA
+# QUALITY CONTROL CHECK DATA
+# NORMALIZE DATA
+#   - house keeping gene normalization
+#   - TMM normalization
+# Differentially Expressed Gene analysis
+# Principal Component Analysis (PCA)
+# Heat Maps
+# 
+
+
+
+
