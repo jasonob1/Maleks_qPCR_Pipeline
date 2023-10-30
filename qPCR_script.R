@@ -1,16 +1,11 @@
-#### Initialize Graphical User Interface (GUI) using Shiny?? ####
-
-
-
 #### Libraries ####
 library(tidyverse)
 library(readxl)
 
 
-#### 1st step: Import Data #####
 
 # locate files
-setwd("Practice Data/Laura's Data/")
+setwd("Practice Data\\Laura's Data")
 allFiles<-list.files()
 metaDataFileName <- "metadata.xlsx"
 dataFiles <- allFiles[!allFiles %in% metaDataFileName]
@@ -35,34 +30,11 @@ rownames(combData)<-combData$'Well Name'
 combData <- combData %>%
   select(-"Well Name") %>%
   t()
-  
+    
+
 # combine with metadata
 # put sample names back into a column
 combData <- data.frame(SampleID=rownames(combData), combData)
 
-# left_join with metadata
-fullData <- left_join(metadata, combData, by="SampleID")
-
-
-#combData["Well Name"]
-#combData$`Well Name`
-
-
-
-
-
-#combinedData <- left_join(rawData[[1]][c("Well Name","Ct (dRn)")], rawData[[2]][c("Well Name","Ct (dRn)")], by = c("Well Name"))
-
-
-
-
-# A) combine all "rawData files"
-        # tidyverse "join" using "Well Name" column
-        # transpose?
-
-# B) "map" them to the metadata
-        # join using "SampleID" column (with some trickery)
-
-
-# BONUS CHALLENGE: Load files using Shiny GUI
-
+# join with metadata
+fullData <- inner_join(metadata, combData, by="SampleID")
