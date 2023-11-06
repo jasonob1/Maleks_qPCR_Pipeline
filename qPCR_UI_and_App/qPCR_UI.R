@@ -44,6 +44,7 @@ server <- function(input, output) {
 }
   
 # Output ----
+  output <- NULL
   output$tableO <- renderTable({
     req(input$metadata)
     req(input$data)
