@@ -248,47 +248,49 @@ plotData%>%
 
 
 #plot after HK normalization
-plotData<-curData %>%
-  unnest(dctData) %>%
-  ungroup() %>%
-  select_at(ctCols(.)) %>%
-  as.data.frame()
-
-row.names(plotData)<-curData %>%
-  unnest(data) %>%
-  ungroup() %>%
-  dplyr::select(sample)%>%
-  unlist() %>%
-  make.names(unique=TRUE)
-
-plotData%>%
-  t %>%
-  data.frame %>%
-  stack %>%
-  plot(formula=values~ind, data=.)
-
+if(normMethod=="HK"){
+  plotData<-curData %>%
+    unnest(dctData) %>%
+    ungroup() %>%
+    select_at(ctCols(.)) %>%
+    as.data.frame()
+  
+  row.names(plotData)<-curData %>%
+    unnest(data) %>%
+    ungroup() %>%
+    dplyr::select(sample)%>%
+    unlist() %>%
+    make.names(unique=TRUE)
+  
+  plotData%>%
+    t %>%
+    data.frame %>%
+    stack %>%
+    plot(formula=values~ind, data=.)
+}
 
 #plot after TMM normalization
-plotData<-curData %>%
-  unnest(expdctData) %>%
-  ungroup() %>%
-  select_at(ctCols(.)) %>%
-  mutate_all(~-log(.,2)) %>%
-  as.data.frame()
-
-row.names(plotData)<-curData %>%
-  unnest(data) %>%
-  ungroup() %>%
-  dplyr::select(sample)%>%
-  unlist() %>%
-  make.names(unique=TRUE)
-
-plotData%>%
-  t %>%
-  data.frame %>%
-  stack %>%
-  plot(formula=values~ind, data=.)
-
+if(normMethod=="TMM"){
+  plotData<-curData %>%
+    unnest(expdctData) %>%
+    ungroup() %>%
+    select_at(ctCols(.)) %>%
+    mutate_all(~-log(.,2)) %>%
+    as.data.frame()
+  
+  row.names(plotData)<-curData %>%
+    unnest(data) %>%
+    ungroup() %>%
+    dplyr::select(sample)%>%
+    unlist() %>%
+    make.names(unique=TRUE)
+  
+  plotData%>%
+    t %>%
+    data.frame %>%
+    stack %>%
+    plot(formula=values~ind, data=.)
+}
 
 #### POST NORM PCA ####
 
