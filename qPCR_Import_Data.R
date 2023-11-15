@@ -1,3 +1,4 @@
+#Previously qPCR_UI
 source("Cell_Viability_Libraries_and_Functions.R")
 
 # Define UI ----
@@ -7,20 +8,26 @@ ui <- fluidPage(
   
   # Sidebar panel for inputs ----
   sidebarPanel(
-    width = 16,
+    width = 16, 
+  
     # Instructions
     actionButton("label", "Instructions", style = "background-color: black; color: white;"),
+    br(),
+    br(),
+    
     # Input: Select metadata.xlsx file ----
-    fileInput("metadata", "Upload metadata.xlsx File:",
+    fileInput("metadata", strong("Upload metadata.xlsx File:"),
               accept = c(".xlsx")),
     
-    fileInput("data", "Upload .txt File(s):",
+    fileInput("data", strong("Upload .txt File(s):"),
               accept = c(".txt"),
               multiple = TRUE),
   
-    tabsetPanel(type = "tabs",
-                tabPanel("Table",  tableOutput("tableO"))
-                )
+    actionButton("createtable", "Generate Table"),
+    
+    absolutePanel(
+      bottom = 20, right = 20,
+      actionButton("goToQC", "Proceed to Quality Control", style = "background-color: white; color: black;"))
   )
  )
 
@@ -45,18 +52,25 @@ server <- function(input, output) {
   
 # Output ----
   output <- NULL
+  output$tableO <- NULL
   output$tableO <- renderTable({
     req(input$metadata)
     req(input$data)
     inFile <- input$metadata
    
-     if (inFile$datapath == "metadata") {
-      source("qPCR_script.R")
-    } else {
-      "Please upload metadata.xlsx and at least one .txt file."
-    }
   })
-  
  
+
+  
 # Run the app ----
 shinyApp(ui = ui, server = server)
+  
+  #### OVERALL APP FUNCTIONALITY #####
+  # LOAD DATA
+  # QUALITY CONTROL CHECK DATA
+  # NORMALIZE DATA
+  #   - house keeping gene normalization
+  #   - TMM normalization
+  # Differentially Expressed Gene analysis
+  # Principal Component Analysis (PCA)
+  # Heat Maps

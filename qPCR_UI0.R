@@ -6,20 +6,58 @@ ui <- fluidPage(
   theme = bs_theme(version = 4, bootswatch = "journal"),
   
   # Sidebar panel for inputs ----
-  sidebarPanel(
-    width = 16,
-    # Instructions
-    actionButton("label", "Instructions", style = "background-color: black; color: white;"),
-    # Input: Select metadata.xlsx file ----
-    fileInput("file1", "Upload metadata.xlsx File:",
-              accept = c(".xlsx")),
+  tabsetPanel(
     
-    fileInput("data", "Upload .txt File(s):",
-              accept = c(".txt"),
-              multiple = TRUE),
+    tabPanel("Page 1", h2 ("Import Data"),
+             sidebarPanel(
+               width = 16, 
+               
+               # Instructions
+               actionButton("label", "Instructions", style = "background-color: black; color: white;"),
+               br(),
+               br(),
+               
+               # Input: Select metadata.xlsx file ----
+               fileInput("metadata", strong("Upload metadata.xlsx File:"),
+                         accept = c(".xlsx")),
+               
+               fileInput("data", strong("Upload .txt File(s):"),
+                         accept = c(".txt"),
+                         multiple = TRUE),
+               
+                actionButton("createtable", "Generate Table"),
+               
+                absolutePanel(
+                 bottom = 20, right = 20,
+                 actionButton("goToQC", "Proceed to Quality Control", style = "background-color: white; color: black;"))
+               
+             )
+          ),
     
-    tabsetPanel(type = "tabs",
-                tabPanel("Table",  tableOutput("myTable"))
+    tabPanel("Page 2", h2("Quality Control"),
+             fluidRow(
+               
+               column(2,
+                      selectInput("sfactors", 
+                                  label = strong("Select Factors"), 
+                                  choices = list("Site", "Type"))),
+               
+               column(4,
+                      selectInput("sHK", 
+                                  label = strong("Select House Keeping Genes"), 
+                                  choices = list("RPL4", "EEF1A1"))),
+               
+               column(3, 
+                      numericInput("highCT", 
+                                   label = strong("Filter Genes With High CT"),  
+                                   value = 1)),
+               
+               column(3, 
+                      numericInput("lowCT", 
+                                   label = strong("Filter Genes With Low CT"),  
+                                   value = 1)),
+               
+      )
     )
   )
 )
@@ -41,76 +79,28 @@ server <- function(input, output) {
       removeModal()
     })
   })
-  
-  plotInput <- reactive({
-    if(input$returnpdf){
-      pdf("plot.pdf", width=as.numeric(input$w), height=as.numeric(input$h))
-      req(input$file1)
-      inFile <- input$file1
-      if (input$chemVal != "ALL") {
-        genPlot(inFile$datapath,input$chemVal,input$fixedLimit)
-      } else {
-        chems <- getChems(inFile$datapath)
-        genMultPlots(inFile$datapath,chems,input$fixedLimit)
-      }
-      dev.off()
-    }
-  })
-  
-  output$chooseChem <- renderUI({
-    req(input$file1)
-    inFile <- input$file1
-    chems <- getChems(inFile$datapath)
-    #### add "ALL" option ####
-    chems <- append(chems,'ALL')
-    selectInput("chemVal", "Chemical:", chems)
-    
-  })
-  
-  output$myTable <- renderTable({
-    req(input$file1)
-    inFile <- input$file1
-    if (input$chemVal != "ALL") {
-      out <- genPlot(inFile$datapath,input$chemVal,input$fixedLimit)
-      out[[2]]
-    } else {
-      chems <- getChems(inFile$datapath)
-      out <- genMultPlots(inFile$datapath,chems,input$fixedLimit)
-      out[[2]]
-    }
-  })
-  
-  output$myRawData <- renderTable({
-    req(input$file1)
-    inFile <- input$file1
-    prepData(inFile$datapath)
-  })
-  
-  output$myPlot <- renderPlot({
-    
-    req(input$file1)
-    inFile <- input$file1
-    
-    if (input$chemVal != "ALL") {
-      genPlot(inFile$datapath,input$chemVal,input$fixedLimit)
-      plotInput()
-    } else {
-      chems <- getChems(inFile$datapath)
-      genMultPlots(inFile$datapath,chems,input$fixedLimit)
-      plotInput()
-    }
-  })
-  
-  
-  output$exportpdf <- downloadHandler(
-    filename <- "myplot.pdf",
-    content <- function(file) {
-      file.copy("plot.pdf", file)
-    }
-  )
-  
 }
+
+# Output ----
+output <- NULL
+output$tableO <- NULL
+output$tableO <- renderTable({
+  req(input$metadata)
+  req(input$data)
+  inFile <- input$metadata
+  
+  
+  if (inFile$datapath == "metadata") {
+    source("qPCR_script.R")
+  } else {
+    "Please upload metadata.xlsx and at least one .txt file."
+  }
+})
+
+#Make a button that says "Generate Table" and "Proceed to Quality Control"
 
 # Run the app ----
 shinyApp(ui = ui, server = server)
+
+# runApp() is the filepath from your working directory to the app’s directory
 
