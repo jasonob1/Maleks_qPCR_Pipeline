@@ -11,12 +11,20 @@ ui <- fluidPage(
     column(2,
            selectInput("sfactors", 
                        label = strong("Select Factors"), 
+                       #Need to make universal so not specific to that data set (col name)
+                       #choices = list(colnames(______tablename))
                        choices = list("Site", "Type")
                        )),
   
+    #Can use raw Data "Well Name" column 
+    #Can pull factors from metadata (sheet 1)
+    
     column(4,
            selectInput("sHK", 
                        label = strong("Select House Keeping Genes"), 
+                       #Put all Column names (see if you can get code to know the difference between QC genes, factors, and the *rest of the genes*)
+                        #Will only work if you define QC genes and factors
+                       #choices = list(colnames(______tablename))
                        choices = list("RPL4", "EEF1A1")
            )),
   

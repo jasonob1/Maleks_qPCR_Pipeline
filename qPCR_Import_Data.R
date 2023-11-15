@@ -1,5 +1,41 @@
 #Previously qPCR_UI
-source("Cell_Viability_Libraries_and_Functions.R")
+# check for installed libraries and install any missing ones
+list.of.packages <- c(
+  "tidyverse",
+  "readxl",
+  "ecotox",
+  "caret",
+  "sqldf",
+  "tcplfit2",
+  "drc",
+  "ggplot2",
+  "data.table",
+  "shiny",
+  "shinyscreenshot",
+  "refund.shiny",
+  "bslib"
+)
+new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
+if(length(new.packages)) install.packages(new.packages)
+
+# load libraries
+library(tidyverse)
+library(readxl)
+library(ecotox)
+library(caret)
+library(sqldf)
+library(tcplfit2)
+library(drc)
+library(ggplot2)
+library(data.table)
+library(shiny)
+library(shinyscreenshot)
+library(refund.shiny)
+library(bslib)
+
+
+#Load the metadata and data files into R like we did for the qPCR_script file 
+
 
 # Define UI ----
 ui <- fluidPage(
@@ -58,6 +94,9 @@ server <- function(input, output) {
     req(input$data)
     inFile <- input$metadata
    
+    #Find out how to store the files being uploaded. They're just being selected at this point
+        #Need to show up in the Environment tab ->
+    
   })
  
 

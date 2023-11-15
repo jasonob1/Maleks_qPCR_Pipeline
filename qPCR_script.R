@@ -4,18 +4,19 @@ library(tidyverse)
 library(readxl)
 
 
+#Move locate, load, and combine files into single table
 
 # locate files
 setwd("Practice Data\\Laura's Data")
 allFiles<-list.files()
-metaDataFileName <- "metadata.xlsx"
+metaDataFileName <- "metadata.xlsx" #upload metadata should save here
 dataFiles <- allFiles[!allFiles %in% metaDataFileName]
 
 
 # load files
-metadata <- read_excel(metaDataFileName)
+metadata <- read_excel(metaDataFileName) 
 
-rawData <- list()
+rawData <- list() #upload .txt files should save here 
 
 for(i in dataFiles){
   rawData[[i]] <- read.table(file = i, header = TRUE, sep="\t", stringsAsFactors = FALSE, check.names=FALSE, na.strings = "No Ct")
