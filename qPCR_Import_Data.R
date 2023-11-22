@@ -73,6 +73,7 @@ server <- function(input, output) {
   
   # Output ----
   output$mergedTable<-renderTable({
+    # Everything inside renderTable{} is closed/hidden from the global env (basically creates its own env), only result fullData is saved as mergedTable
     req(input$metaFile)
     req(input$dataFiles)
     metaPath<-input$metaFile$datapath

@@ -45,3 +45,14 @@ server <- function(input, output, session) {
 
 shinyApp(ui, server)
 
+
+# Implement next and previous buttons 
+# Have navigation tabs (page 1 and 2 of the other script, the UI0)
+# Link the next/previous step to the upcoming page
+
+
+
+# See if when you run the app, it saves in the Rstudio environment -> 
+# And if there's a way to have the app is running and update the changes real time
+
+

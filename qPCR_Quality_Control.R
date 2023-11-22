@@ -14,7 +14,7 @@ ui <- fluidPage(
     column(6,
            selectInput("sfactors", 
                        label = strong("Select Factors"), 
-                       # would this be the right code: choices = list(colnames(FullData))
+                       # would this be the right code: choices = list(colnames(output$metaPath))
                        choices = list("Site", "Type")
                        ),
           
@@ -33,7 +33,7 @@ ui <- fluidPage(
                        #Put all Column names (see if you can get code to know the difference between QC genes, factors, and the *rest of the genes*)
                        
   # QCgenes <- c("Genomic Contamination", "PCR Positive", "No Template Control", "Reverse Transcriptase Control")
-  # Genes <- #Can use raw Data "Well Name" column 
+  # Genes <- #Can use raw Data "Well Name" column (have to save raw data file as an output) 
   # Factors <- c("SampleID", "Site") <- #Can pull factors from metadata (sheet 1)
   
                        #choices = list(colnames(FullData))
