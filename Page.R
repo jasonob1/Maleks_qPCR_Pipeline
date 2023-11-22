@@ -7,11 +7,17 @@ ui <- fluidPage(
   useShinyjs(),
   hidden(
     lapply(seq(NUM_PAGES), function(i) {
+      if(i==1){
       div(
         class = "page",
         id = paste0("step", i),
-        "Step", i
-      )
+        "PAGEA", i
+      )} else { 
+        div(
+          class = "page",
+          id = paste0("step", i),
+          "Step", i)
+      }
     })
   ),
   br(),
@@ -38,3 +44,4 @@ server <- function(input, output, session) {
 }
 
 shinyApp(ui, server)
+

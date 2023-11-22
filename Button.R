@@ -1,7 +1,11 @@
 library(shiny)
 
 ui <- fluidPage(
-  titlePanel("Dynamic Buttons Example"),
+  
+  # First sidebarPanel is test
+  sidebarPanel(
+    actionButton("instrButton", "Instructions", style = "background-color: black; color: white;")
+  ),
   
     sidebarPanel(
       # Initial button
@@ -14,7 +18,7 @@ ui <- fluidPage(
 
 server <- function(input, output, session) {
   # Track the number of button clicks
-  clickCount <- reactiveVal(0)
+  clickCount <- reactiveVal(1)
   
   # Render additional buttons based on click event
   output$dynamicButtons <- renderUI({
