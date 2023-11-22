@@ -43,7 +43,16 @@ ui <- fluidPage(
              absolutePanel(
                bottom = 10, right = 20,
                actionButton("goToQC", "Proceed to Quality Control", style = "background-color: white; color: black;"))
-           )
+          ),
+           
+          #### "sfactors" pull down menu, that gets updated after metadata is loaded ----
+          fluidRow(
+            column(2,
+              selectInput("sfactors",
+                          label = strong("Select Factors"), 
+                          choices = NULL)
+            ),
+          )
     )
   ),
   
@@ -72,6 +81,23 @@ server <- function(input, output) {
   })
   
   # Output ----
+  
+  
+  #### To update "sfactors" pulldown menu ----
+    # load metadata file into a "reactive" object 
+    metadata <- reactive({
+      req(input$metaFile)
+      read_excel(input$metaFile$datapath)
+    })
+    # update the "sfactors" select input after metadata has been loaded  
+    observeEvent(metadata(), {
+      choices <- colnames(metadata())
+      updateSelectInput(inputId = "sfactors", choices = choices) 
+    })
+  
+  
+  
+  # Merge and render metadata and Raw qPCR data ----
   output$mergedTable<-renderTable({
     # Everything inside renderTable{} is closed/hidden from the global env (basically creates its own env), only result fullData is saved as mergedTable
     req(input$metaFile)
