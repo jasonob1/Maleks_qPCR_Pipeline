@@ -140,15 +140,8 @@ server <- function(input, output) {
   })
   
   
-  
-  # Merge and render metadata and Raw qPCR data ----
-  output$mergedTable<-renderTable({
-    # Everything inside renderTable{} is closed/hidden from the global env (basically creates its own env), only result fullData is saved as mergedTable
-    req(input$metaFile)
+  qPCRdata <- reactive({
     req(input$dataFiles)
-    metaPath<-input$metaFile$datapath
-    metadata<-read_excel(metaPath)
-    
     rawList<-list()
     for(i in 1:nrow(input$dataFiles)) {
       lname<-gsub(".txt", "", input$dataFiles$name[i])
@@ -157,8 +150,33 @@ server <- function(input, output) {
       colnames(rawList[[i]])[2] <-lname
     }
     
+  })
+  
+  
+  
+  
+  
+  # Merge and render metadata and Raw qPCR data ----
+  output$mergedTable<-renderTable({
+    # Everything inside renderTable{} is closed/hidden from the global env (basically creates its own env), only result fullData is saved as mergedTable
+    
+    req(metadata())
+    req(qPCRdata())
+    #req(input$dataFiles)
+    #metaPath<-input$metaFile$datapath
+    #metadata<-read_excel(metaPath)
+    
+    #rawList<-list()
+    #for(i in 1:nrow(input$dataFiles)) {
+    #  lname<-gsub(".txt", "", input$dataFiles$name[i])
+    #  rawList[[lname]] <- read.table(file = input$dataFiles$datapath[i], header = TRUE, sep="\t", stringsAsFactors = FALSE, check.names=FALSE, na.strings = "No Ct")
+    #  rawList[[lname]] <- rawList[[lname]][c("Well Name","Ct (dRn)")]
+    #  colnames(rawList[[i]])[2] <-lname
+    #}
+    
     # combine files into a single table
-    combData<- reduce(rawList, left_join, by = 'Well Name')
+    #combData<- reduce(rawList, left_join, by = 'Well Name')
+    combData<- reduce(qPCRdata(), left_join, by = 'Well Name')
     
     # transpose ....but first move column 1 (well name) into row names
     rownames(combData)<-combData$'Well Name'
@@ -171,7 +189,7 @@ server <- function(input, output) {
     combData <- data.frame(SampleID=rownames(combData), combData)
     
     # join with metadata
-    fullData <- inner_join(metadata, combData, by="SampleID")
+    fullData <- inner_join(metadata(), combData, by="SampleID")
   })
   
 }
@@ -179,4 +197,5 @@ server <- function(input, output) {
 
 # Run the app ----
 shinyApp(ui = ui, server = server)
+
 #test
