@@ -40,3 +40,4 @@ combData <- data.frame(SampleID=rownames(combData), combData)
 
 # join with metadata
 fullData <- inner_join(metadata, combData, by="SampleID")
+#test

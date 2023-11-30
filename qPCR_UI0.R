@@ -97,11 +97,6 @@ output$tableO <- renderTable({
   }
 })
 
-#Make a button that says "Generate Table" and "Proceed to Quality Control"
 
 # Run the app ----
 shinyApp(ui = ui, server = server)
-
-# runApp() is the filepath from your working directory to the app’s directory
-
-#test
