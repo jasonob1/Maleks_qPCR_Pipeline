@@ -1,60 +1,50 @@
-#### check for installed libraries and install any missing ones ####
 list.of.packages <- c(
   "tidyverse",
   "read_xl",
   "shiny",
-  "bslib"
+  "bslib",
+  "data.table"
 )
 new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
 if(length(new.packages)) install.packages(new.packages)
 
-# load libraries
 library(tidyverse)
 library(readxl)
 library(shiny)
 library(bslib)
+library(data.table)
 
 
-# Define UI ----
 ui <- fluidPage(
   
   titlePanel("QPCR App"),
   theme = bs_theme(version = 4, bootswatch = "journal"),
   
-  # Sidebar panel for inputs ----
   tabsetPanel(
     tabPanel("Page 1", h2 ("Import Data"),
-             # fluidRow contains 12 columns, in this case 1 column taking 12 spaces ----
+             
              fluidRow(
                column(width = 12,
                       sidebarPanel(
                         style = "height: 350px",
                         width = 16, 
                         
-                        # Instructions
                         actionButton("instrButton", "Instructions", style = "background-color: black; color: white;"),
                         br(),
                         br(),
                         
-                        # Input: Select metadata.xlsx file ----
                         fileInput("metaFile", strong("Upload metadata.xlsx File:"),
                                   accept = c(".xlsx")),
                         
                         fileInput("dataFiles", strong("Upload .txt File(s):"),
                                   accept = c(".txt"),
                                   multiple = TRUE),
-                        
-                        absolutePanel(
-                          bottom = 10, right = 20,
-                          actionButton("goToQC", "Proceed to Quality Control", style = "background-color: white; color: black;"))
-                      ),
-                      
+                      )
                )
              ),
              
-             # mainPanel is outside fluidRow so it takes the full width below the sidebar ----
              mainPanel(
-               tableOutput("mergedTable")
+               DT::dataTableOutput("mergedTable")
              )
     ),
     
@@ -77,20 +67,20 @@ ui <- fluidPage(
                
                column(6,
                       selectInput("sHK", label = strong("Select House Keeping Genes"), 
-                       #Put all Column names (see if you can get code to know the difference between QC genes, factors, and the *rest of the genes*)
+                                  #Put all Column names (see if you can get code to know the difference between QC genes, factors, and the *rest of the genes*)
                                   
-                       # QCgenes <- c("Genomic Contamination", "PCR Positive", "No Template Control", "Reverse Transcriptase Control")
-                       # Genes <- #Can use raw Data "Well Name" column (have to save raw data file as an output) 
-                       # Factors <- c("SampleID", "Site") <- #Can pull factors from metadata (sheet 1)
-                       #choices = list(colnames(FullData))
-                                  choices = list("RPL4", "EEF1A1") #make it all the columns in gene column name (from reactive object u have to create)
-                        ),
-                      
-                        # Initial button
-                        actionButton("addHK", "Add Another HK Gene"),
-                        br(),
-                        br(),
+                                  # QCgenes <- c("Genomic Contamination", "PCR Positive", "No Template Control", "Reverse Transcriptase Control")
+                                  # Genes <- #Can use raw Data "Well Name" column (have to save raw data file as an output) 
+                                  # Factors <- c("SampleID", "Site") <- #Can pull factors from metadata (sheet 1)
+                                  #choices = list(colnames(FullData))
+                                  choices = NULL #make it all the columns in gene column name (from reactive object u have to create)
                       ),
+                      
+                      # Initial button
+                      actionButton("addHK", "Add Another HK Gene"),
+                      br(),
+                      br(),
+               ),
                
                column(6, 
                       numericInput("highCT", label = strong("Filter Genes With High CT"),  value = 1)),
@@ -99,7 +89,7 @@ ui <- fluidPage(
                       numericInput("lowCT", label = strong("Filter Genes With Low CT"),  value = 1)),
                
              )
-          ),
+    ),
     
     tabPanel("Page 3", h2("Normalize Data")
     )
@@ -126,12 +116,15 @@ server <- function(input, output) {
   
   # Output ----
   
+  meta_input <- reactive({
+    req(input$metaFile)
+    read_excel(input$metaFile$datapath)
+  })
   
   #### To update "sfactors" pulldown menu ----
   # load metadata file into a "reactive" object 
   metadata <- reactive({
-    req(input$metaFile)
-    read_excel(input$metaFile$datapath)
+    meta_input()
   })
   # update the "sfactors" select input after metadata has been loaded  
   observeEvent(metadata(), {
@@ -139,16 +132,30 @@ server <- function(input, output) {
     updateSelectInput(inputId = "sfactors", choices = choices) 
   })
   
+  #### To update "sHK" pulldown menu ----
+  txt_inputs <- reactive({
+    req(input$dataFiles)
+    lapply(input$dataFiles$datapath, read.table, sep = "\t", header = TRUE)  # Adjust sep accordingly
+  })
+  
+  dataF <- reactive({
+    txt_inputs()
+  })
+  
+  observeEvent(dataF(), {
+    # Assuming that all files have the same structure, take the column names from the first file
+    choices <- colnames(dataF()[[1]])
+    updateSelectInput(inputId = "sHK", choices = choices)
+  })
+  
+  
   
   
   # Merge and render metadata and Raw qPCR data ----
-  output$mergedTable<-renderTable({
-    # Everything inside renderTable{} is closed/hidden from the global env (basically creates its own env), only result fullData is saved as mergedTable
-    req(input$metaFile)
-    req(input$dataFiles)
+  output$mergedTable<-DT::renderDataTable({
+    meta_input()
     metaPath<-input$metaFile$datapath
     metadata<-read_excel(metaPath)
-    
     
     #From line 154-173 needs to be its own object (make reactivity work somehow) (metadata separate object, gene table separate object, then combine)
     rawList<-list()
@@ -181,3 +188,4 @@ server <- function(input, output) {
 
 # Run the app ----
 shinyApp(ui = ui, server = server)
+
