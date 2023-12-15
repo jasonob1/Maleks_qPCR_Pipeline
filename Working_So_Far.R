@@ -124,6 +124,8 @@ server <- function(input, output) {
     })
   })
   
+  #observeEvent(input$addFactor ?
+  
   # Output ----
   
   
