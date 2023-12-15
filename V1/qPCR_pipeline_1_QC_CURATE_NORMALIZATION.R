@@ -34,40 +34,40 @@ curData <- rawData    # make a copy to manipulate
 #   select(-c("Notes"))
 
 # identify total number of remaining samples
-nSamples<- curData %>% nrow()
+nSamples<- curData %>% nrow() #MS: COUNTING ROWS
 
 
 #### CURATE FACTORS ####
 
 # identify "experimental factors" (to differentiate from gene columns)
-expFactors <- c("site","type")
+expFactors <- c("site","type") #MS: IDENTIFYING FACTORS (ALREADY DID THIS BUT DID NOT HARDWIRE)
 
 # covert to factors and specify any orders
-curData <- curData %>%
-  mutate(site = factor(site))
+curData <- curData %>% 
+  mutate(site = factor(site)) #MS: CONVERTS THE SELECTED EXPERIMENTAL FACTORS INTO FACTORS
 
 #  ANOVA factors (to use for statistical analysis)
-aovFactor <- c("site")
+aovFactor <- c("site") #MS: MIGHT NOT USE THIS, WE'LL SEE (IF WE DON'T, MAKE SURE TO CHANGE A LOT IN THE SCRIPT SO IT WORKS)
 
 
 #### CURATE GENES ####
 
 # Identify Housekeeping Genes
-hkGenes <- c("RPL4", "EEF1A1")
+hkGenes <- c("RPL4", "EEF1A1") #MS: IT'S HARDCODED, CHANGE SO IT GOES BASED OFF WHAT'S SELECTED 
 
 # identy and remove QC genes
-qcGenes<-c("GGDC", "RTC", "PPC")
-curData<-cleanQC(curData, qcGenes)
+qcGenes<-c("GGDC", "RTC", "PPC") 
+curData<-cleanQC(curData, qcGenes) #MS: ORGANIZES THE TABLE IN A CERTAIN WAY
 
 # Identifies all of the "Gene" columns "ctCols" function # RUN EVERYTIME
-rawCtCols<-names(curData)[!names(curData)%in%c("sample", "experiment", "type", "flagNoCt", "flagHigh", expFactors)]
+rawCtCols<-names(curData)[!names(curData)%in%c("sample", "experiment", "type", "flagNoCt", "flagHigh", expFactors)] #MS: IDENTIFIES EVERY COLUMN THAT ARE GENES (NOT SAMPLE_ID, NOT SITE), LIKE sHK
 
 # reorder genes alphabetically (easier to look through final results)
 gOrder<-ctCols(curData) %>%
-  order() %>%
-  ctCols(curData)[.]
+  order() %>% #MS: MAKES THE GENE LIST ALPHABETICAL ORDER
+  ctCols(curData)[.] #MS: THAT'S A CUSTOM FUNCTION (ctCols), YOU'LL FIND IT IN THE OTHER SCRIPT, IT JUST TAKES THE LIST OF GENES THAT WE DID NOT USE (rawCtCols so line 63)
 curData <- curData %>%
-  select_at(c("sample", "experiment", expFactors, gOrder))
+  select_at(c("sample", "experiment", expFactors, gOrder)) 
 
 
 #### FILTER GENES ####
