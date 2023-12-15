@@ -28,18 +28,18 @@ ui <- fluidPage(
                       sidebarPanel(
                         style = "height: 350px",
                         width = 16, 
-                      
+                        
                         actionButton("instrButton", "Instructions", style = "background-color: black; color: white;"),
                         br(),
                         br(),
-                       
+                        
                         fileInput("metaFile", strong("Upload metadata.xlsx File:"),
                                   accept = c(".xlsx")),
                         
                         fileInput("dataFiles", strong("Upload .txt File(s):"),
                                   accept = c(".txt"),
                                   multiple = TRUE),
-                  )
+                      )
                )
              ),
              
@@ -52,41 +52,60 @@ ui <- fluidPage(
              fluidRow(
                column(6,
                       selectInput("sfactors", label = strong("Select Factors"), 
-                                  # would this be the right code: choices = list(colnames(output$metaPath))
                                   choices = NULL
                       ),
                       
-                      # Initial button
                       actionButton("addFactor", "Add Another Factor"),
                       br(),
                       br(),
                       
-                     
+                      # WHAT IS THIS FOR? DOESN'T MAKE A DIFFERENCE IF YOU KEEP/REMOVE
+                      uiOutput("dynamicButtons")
                ),
                
                column(6,
                       selectInput("sHK", label = strong("Select House Keeping Genes"), 
-                                  #Put all Column names (see if you can get code to know the difference between QC genes, factors, and the *rest of the genes*)
-                                  
-                                  # QCgenes <- c("Genomic Contamination", "PCR Positive", "No Template Control", "Reverse Transcriptase Control")
-                                  # Genes <- #Can use raw Data "Well Name" column (have to save raw data file as an output) 
-                                  # Factors <- c("SampleID", "Site") <- #Can pull factors from metadata (sheet 1)
-                                  #choices = list(colnames(FullData))
-                                  choices = NULL #make it all the columns in gene column name (from reactive object u have to create)
+                                  choices = NULL, selected = NULL #SELECTED NULL DOESN'T WORK, DOESNT GIVE BLANK 
                       ),
                       
-                      # Initial button
                       actionButton("addHK", "Add Another HK Gene"),
                       br(),
                       br(),
                ),
                
-               column(6, 
-                      numericInput("highCT", label = strong("Filter Genes With High CT"),  value = 1)),
+               column(6,
+                      selectInput("sQC", label = strong("Select QC Genes"), 
+                                  choices = NULL 
+                      ),
+                      
+                      actionButton("addQC", "Add Another QC Gene"),
+                      br(),
+                      br(),
+               ),
+               
+               column(6,
+                      selectInput("sQCT", label = strong("Select QC Types"), 
+                                  choices = list("Genomic Contamination", 
+                                                 "PCR Positive", 
+                                                 "Reverse Transcriptase Control",
+                                                 "No Template Control")
+                      ),
+                      
+                      actionButton("addQCT", "Add Another QC Type"),
+                      br(),
+                      br(),
+               ),
                
                column(6, 
-                      numericInput("lowCT", label = strong("Filter Genes With Low CT"),  value = 1)),
+                      numericInput("highCT", label = strong("Filter Genes With High CT"), value = 25, min=25, max=40)),
                
+               column(6, 
+                      numericInput("lowCT", label = strong("Filter Genes With Low CT"), value = 1, min=1, max=15)),
+             ),
+             
+             mainPanel(
+               textOutput("selected"),
+               DT::dataTableOutput("QCTable")
              )
     ),
     
@@ -113,10 +132,6 @@ server <- function(input, output) {
     })
   })
   
-  #observeEvent(input$addFactor ?
-    
-  
-  
   # Output ----
   
   meta_input <- reactive({
@@ -135,16 +150,11 @@ server <- function(input, output) {
     updateSelectInput(inputId = "sfactors", choices = choices) 
   })
   
-  # Merge and render metadata and Raw qPCR data ----
-  output$mergedTable<-DT::renderDataTable({
-    meta_input()
-    metaPath<-input$metaFile$datapath
-    metadata<-read_excel(metaPath)
-  
   #### To update "sHK" pulldown menu ----
   txt_inputs <- reactive({
     req(input$dataFiles)
-    #readLines causes the app to shut down
+    rawList <- lapply(input$dataFiles$datapath, read.table, sep = "\t", header = TRUE, check.names = FALSE)  
+    combData<- reduce(rawList, left_join, by = 'Well Name')
   })
   
   dataF <- reactive({
@@ -152,11 +162,36 @@ server <- function(input, output) {
   })
   
   observeEvent(dataF(), {
-    txtF <- colnames(dataF())
-    updateSelectInput(inputId = "sHK", choices = txtF)
+    # Assuming that all files have the same structure, take the column names from the first file
+    choices <- dataF()$'Well Name'
+    updateSelectInput(inputId = "sHK", choices = choices)
   })
+  
+  
+  #### To update "sQC" pulldown menu ----
+  txt_sQC <- reactive({
+    req(input$dataFiles)
+    rawList <- lapply(input$dataFiles$datapath, read.table, sep = "\t", header = TRUE, check.names = FALSE)  
+    combData<- reduce(rawList, left_join, by = 'Well Name')
+  })
+  
+  dataFsQC <- reactive({
+    txt_sQC()
+  })
+  
+  observeEvent(dataFsQC(), {
+    # Assuming that all files have the same structure, take the column names from the first file
+    choices <- dataFsQC()$'Well Name'
+    updateSelectInput(inputId = "sQC", choices = choices)
+  })
+  
+  # Merge and render metadata and Raw qPCR data ----
+  output$mergedTable<-DT::renderDataTable({
+    meta_input()
+    metaPath<-input$metaFile$datapath
+    metadata<-read_excel(metaPath)
     
-    #From line 154-173 needs to be its own object (make reactivity work somehow) (metadata separate object, gene table separate object, then combine)
+    # WHEN I REMOVE THIS, IT DOESN'T PROVIDE A TABLE ('rawList not found')
     rawList<-list()
     for(i in 1:nrow(input$dataFiles)) {
       lname<-gsub(".txt", "", input$dataFiles$name[i])
@@ -165,10 +200,10 @@ server <- function(input, output) {
       colnames(rawList[[i]])[2] <-lname
     }
     
-    # combine files into a single table
+    # WHEN I REMOVE THIS, IT DOESN'T PROVIDE A TABLE ('combData not found')
     combData<- reduce(rawList, left_join, by = 'Well Name')
     
-    # transpose ....but first move column 1 (well name) into row names
+    # WHEN I REMOVE THIS, IT DOESN'T PROVIDE A TABLE (NO VALUES PROVIDED)
     rownames(combData)<-combData$'Well Name'
     combData <- combData %>%
       dplyr::select(-'Well Name') %>%
@@ -182,8 +217,16 @@ server <- function(input, output) {
     fullData <- inner_join(metadata, combData, by="SampleID")
   })
   
+  # Normalization plot (NEEDS TO BE FIXED)
+  output$QCTable<-DT::renderDataTable({
+    dataFsQC()
+  })
+  
+  output$selected <- renderText({
+    paste("Selected:", input$sfactors, ",", input$sHK, ",", input$sQC, ",", input$sQCT, ",", input$highCT, ",", input$lowCT)
+  })
+  
 }
-
 
 # Run the app ----
 shinyApp(ui = ui, server = server)
