@@ -50,6 +50,8 @@ ui <- fluidPage(
     
     tabPanel("Page 2", h2("Quality Control"),
              fluidRow(
+               #MAKE sidebarPanel THAT HAS EVERYTHING ON THE LEFT, PLOT ON THE RIGHT
+               #EACH "SELECTION" IS ON ITS OWN LINE EXCEPT sQC and sQCT, SIDE BY SIDE AND LINKED!
                column(6,
                       selectInput("sfactors", label = strong("Select Factors"), 
                                   choices = NULL
@@ -59,13 +61,11 @@ ui <- fluidPage(
                       br(),
                       br(),
                       
-                      # WHAT IS THIS FOR? DOESN'T MAKE A DIFFERENCE IF YOU KEEP/REMOVE
-                      uiOutput("dynamicButtons")
                ),
                
                column(6,
                       selectInput("sHK", label = strong("Select House Keeping Genes"), 
-                                  choices = NULL, selected = NULL #SELECTED NULL DOESN'T WORK, DOESNT GIVE BLANK 
+                                  choices = NULL, 
                       ),
                       
                       actionButton("addHK", "Add Another HK Gene"),
@@ -78,7 +78,7 @@ ui <- fluidPage(
                                   choices = NULL 
                       ),
                       
-                      actionButton("addQC", "Add Another QC Gene"),
+                      actionButton("addQC", "Add Another QC Gene"), # LINK to sQCT
                       br(),
                       br(),
                ),
@@ -169,11 +169,11 @@ server <- function(input, output) {
   
   
   #### To update "sQC" pulldown menu ----
-  txt_sQC <- reactive({
+  txt_sQC <- reactive({ #CALL IT CT_DATATABLE OR GENE_DATA
     req(input$dataFiles)
     rawList <- lapply(input$dataFiles$datapath, read.table, sep = "\t", header = TRUE, check.names = FALSE)  
     combData<- reduce(rawList, left_join, by = 'Well Name')
-  })
+  }) #all this creates a gene data table
   
   dataFsQC <- reactive({
     txt_sQC()
@@ -188,7 +188,7 @@ server <- function(input, output) {
   # Merge and render metadata and Raw qPCR data ----
   output$mergedTable<-DT::renderDataTable({
     meta_input()
-    metaPath<-input$metaFile$datapath
+    metaPath<-input$metaFile$datapath #CAN GET RID OF lines 191-192
     metadata<-read_excel(metaPath)
     
     # WHEN I REMOVE THIS, IT DOESN'T PROVIDE A TABLE ('rawList not found')
@@ -207,7 +207,7 @@ server <- function(input, output) {
     rownames(combData)<-combData$'Well Name'
     combData <- combData %>%
       dplyr::select(-'Well Name') %>%
-      t()
+      t() #THIS ROW AND THE 3 ABOVE IT GRAB THE GENE LIST (VERTICAL), AND TRANSPOSES IT SO IT BECOMES HORIZONTAL LIKE METADATA
     
     # combine with metadata
     # but first, put sample names back into a column
@@ -230,3 +230,6 @@ server <- function(input, output) {
 
 # Run the app ----
 shinyApp(ui = ui, server = server)
+
+
+#Create a reactive object that collects all the gene list, EXCLUDING THE ONES I SELECTED
