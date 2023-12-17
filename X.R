@@ -14,7 +14,7 @@ library(shiny)
 library(bslib)
 library(data.table)
 
-#### UI ####
+
 ui <- fluidPage(
   
   titlePanel("QPCR App"),
@@ -44,7 +44,7 @@ ui <- fluidPage(
              ),
              
              mainPanel(
-               DT::dataTableOutput("fullTable")
+               DT::dataTableOutput("mergedTable")
              )
     ),
     
@@ -114,7 +114,7 @@ ui <- fluidPage(
   )
 )
 
-#### SERVER ####
+# Define server logic ----
 server <- function(input, output) {
   
   observeEvent(input$instrButton, {
@@ -132,17 +132,66 @@ server <- function(input, output) {
     })
   })
   
-  # LOAD DATA ----
+  # Output ----
   
-  # Load metadata
-  metadata <- reactive({
+  meta_input <- reactive({
     req(input$metaFile)
     read_excel(input$metaFile$datapath)
   })
- 
-  #load gene data
-  GeneData <- reactive({
+  
+  #### To update "sfactors" pulldown menu ----
+  # load metadata file into a "reactive" object 
+  metadata <- reactive({
+    meta_input()
+  })
+  # update the "sfactors" select input after metadata has been loaded  
+  observeEvent(metadata(), {
+    choices <- colnames(metadata())
+    updateSelectInput(inputId = "sfactors", choices = choices) 
+  })
+  
+  #### To update "sHK" pulldown menu ----
+  txt_inputs <- reactive({
     req(input$dataFiles)
+    rawList <- lapply(input$dataFiles$datapath, read.table, sep = "\t", header = TRUE, check.names = FALSE)  
+    combData<- reduce(rawList, left_join, by = 'Well Name')
+  })
+  
+  dataF <- reactive({
+    txt_inputs()
+  })
+  
+  observeEvent(dataF(), {
+    # Assuming that all files have the same structure, take the column names from the first file
+    choices <- dataF()$'Well Name'
+    updateSelectInput(inputId = "sHK", choices = choices)
+  })
+  
+  
+  #### To update "sQC" pulldown menu ----
+  txt_sQC <- reactive({ #CALL IT CT_DATATABLE OR GENE_DATA
+    req(input$dataFiles)
+    rawList <- lapply(input$dataFiles$datapath, read.table, sep = "\t", header = TRUE, check.names = FALSE)  
+    combData<- reduce(rawList, left_join, by = 'Well Name')
+  }) #all this creates a gene data table
+  
+  dataFsQC <- reactive({
+    txt_sQC()
+  })
+  
+  observeEvent(dataFsQC(), {
+    # Assuming that all files have the same structure, take the column names from the first file
+    choices <- dataFsQC()$'Well Name'
+    updateSelectInput(inputId = "sQC", choices = choices)
+  })
+  
+  # Merge and render metadata and Raw qPCR data ----
+  output$mergedTable<-DT::renderDataTable({
+    meta_input()
+    metaPath<-input$metaFile$datapath #CAN GET RID OF lines 191-192
+    metadata<-read_excel(metaPath)
+    
+    # WHEN I REMOVE THIS, IT DOESN'T PROVIDE A TABLE ('rawList not found')
     rawList<-list()
     for(i in 1:nrow(input$dataFiles)) {
       lname<-gsub(".txt", "", input$dataFiles$name[i])
@@ -150,54 +199,27 @@ server <- function(input, output) {
       rawList[[lname]] <- rawList[[lname]][c("Well Name","Ct (dRn)")]
       colnames(rawList[[i]])[2] <-lname
     }
+    
+    # WHEN I REMOVE THIS, IT DOESN'T PROVIDE A TABLE ('combData not found')
     combData<- reduce(rawList, left_join, by = 'Well Name')
-  })
-  
-  # Join metadata and genedata into one table
-  fullTable<-reactive({
     
-    # Move gene names into row names so that they become column names when we transform table
-    tempGeneData <- GeneData()
-    rownames(tempGeneData)<-tempGeneData$'Well Name'
-    tempGeneData <- tempGeneData %>%
+    # WHEN I REMOVE THIS, IT DOESN'T PROVIDE A TABLE (NO VALUES PROVIDED)
+    rownames(combData)<-combData$'Well Name'
+    combData <- combData %>%
       dplyr::select(-'Well Name') %>%
-      t() 
+      t() #THIS ROW AND THE 3 ABOVE IT GRAB THE GENE LIST (VERTICAL), AND TRANSPOSES IT SO IT BECOMES HORIZONTAL LIKE METADATA
     
-    # Move "sample IDs" (which are currently the new row names) into a column called "SampleID"
-    tempGeneData <- data.frame(SampleID=rownames(tempGeneData), tempGeneData)
+    # combine with metadata
+    # but first, put sample names back into a column
+    combData <- data.frame(SampleID=rownames(combData), combData)
     
     # join with metadata
-    
-    fullData <- inner_join(metadata(), tempGeneData, by="SampleID")
-  })
-  
-  
-  # OBSERVE EVENTS ----
-  observeEvent(metadata(), {
-    choices <- colnames(metadata())
-    updateSelectInput(inputId = "sfactors", choices = choices) 
-  })
-  
-  observeEvent(GeneData(), {
-    choices <- GeneData()$'Well Name'
-    updateSelectInput(inputId = "sHK", choices = choices)
-  })
-  
-  observeEvent(GeneData(), {
-    choices <- GeneData()$'Well Name'
-    updateSelectInput(inputId = "sQC", choices = choices)
-  })
-  
-  
-  # RENDERED OBJECTS
-  
-  output$fullTable<-DT::renderDataTable({
-    fullTable()
+    fullData <- inner_join(metadata, combData, by="SampleID")
   })
   
   # Normalization plot (NEEDS TO BE FIXED)
   output$QCTable<-DT::renderDataTable({
-    GeneData()
+    dataFsQC()
   })
   
   output$selected <- renderText({
@@ -206,8 +228,18 @@ server <- function(input, output) {
   
 }
 
-#### Run the app ####
+# Run the app ----
 shinyApp(ui = ui, server = server)
 
 
 #Create a reactive object called geneNames that collects all the gene list ("Well Name"), EXCLUDING THE ONES I SELECTED (HK, QC genes)
+
+#### OVERALL APP FUNCTIONALITY #####
+# LOAD DATA
+# QUALITY CONTROL CHECK DATA
+# NORMALIZE DATA
+#   - house keeping gene normalization
+#   - TMM normalization
+# Differentially Expressed Gene analysis
+# Principal Component Analysis (PCA)
+# Heat Maps
