@@ -49,13 +49,12 @@ ui <- fluidPage(
     ),
     
     tabPanel("Page 2", h2("Quality Control"),
-             fluidRow(
-               #MAKE sidebarPanel THAT HAS EVERYTHING ON THE LEFT, PLOT ON THE RIGHT
-               #EACH "SELECTION" IS ON ITS OWN LINE EXCEPT sQC and sQCT, SIDE BY SIDE AND LINKED!
-               column(6,
+             sidebarLayout(
+               #EACH "SELECTION" IS ON ITS OWN LINE EXCEPT sQCG and sQCT, SIDE BY SIDE AND LINKED!
+               sidebarPanel(
+               column(12,
                       selectInput("sfactors", label = strong("Select Factors"), 
-                                  choices = NULL
-                      ),
+                                  choices = NULL),
                       
                       actionButton("addFactor", "Add Another Factor"),
                       br(),
@@ -63,25 +62,23 @@ ui <- fluidPage(
                       
                ),
                
-               column(6,
+               column(12,
                       selectInput("sHK", label = strong("Select House Keeping Genes"), 
-                                  choices = NULL, 
-                      ),
+                                  choices = NULL),
                       
                       actionButton("addHK", "Add Another HK Gene"),
                       br(),
                       br(),
                ),
-               
+               fluidRow(
                column(6,
-                      selectInput("sQC", label = strong("Select QC Genes"), 
-                                  choices = NULL 
-                      ),
+                      selectInput("sQCG", label = strong("Select QC Genes"), 
+                                  choices = NULL),
                       
                       actionButton("addQC", "Add Another QC Gene"), # LINK to sQCT
                       br(),
                       br(),
-               ),
+                      ),
                
                column(6,
                       selectInput("sQCT", label = strong("Select QC Types"), 
@@ -89,24 +86,28 @@ ui <- fluidPage(
                                                  "PCR Positive", 
                                                  "Reverse Transcriptase Control",
                                                  "No Template Control")
+                                  ),
                       ),
-                      
-                      actionButton("addQCT", "Add Another QC Type"),
-                      br(),
-                      br(),
                ),
+               
+               fluidRow(
+               column(6, 
+                      numericInput("lowCT", label = strong("Filter Genes With Low CT"), value = 1, min=1, max=15)),
                
                column(6, 
                       numericInput("highCT", label = strong("Filter Genes With High CT"), value = 25, min=25, max=40)),
-               
-               column(6, 
-                      numericInput("lowCT", label = strong("Filter Genes With Low CT"), value = 1, min=1, max=15)),
-             ),
+               ),
+              
+                textOutput("selected")
+              ),
              
              mainPanel(
-               textOutput("selected"),
                DT::dataTableOutput("QCTable")
-             )
+             ),
+             
+             # Unneeded as that's the sidebarLayout default (mainPanel is on the right)
+             position = c("left", "right")
+          ), 
     ),
     
     tabPanel("Page 3", h2("Normalize Data")
@@ -134,14 +135,14 @@ server <- function(input, output) {
   
   # LOAD DATA ----
   
-  # Load metadata
-  metadata <- reactive({
+  # Load metaData
+  metaData <- reactive({
     req(input$metaFile)
     read_excel(input$metaFile$datapath)
   })
  
-  #load gene data
-  GeneData <- reactive({
+  #load geneData
+  geneData <- reactive({
     req(input$dataFiles)
     rawList<-list()
     for(i in 1:nrow(input$dataFiles)) {
@@ -153,11 +154,11 @@ server <- function(input, output) {
     combData<- reduce(rawList, left_join, by = 'Well Name')
   })
   
-  # Join metadata and genedata into one table
+  # Join metaData and geneData into one table
   fullTable<-reactive({
     
     # Move gene names into row names so that they become column names when we transform table
-    tempGeneData <- GeneData()
+    tempGeneData <- geneData()
     rownames(tempGeneData)<-tempGeneData$'Well Name'
     tempGeneData <- tempGeneData %>%
       dplyr::select(-'Well Name') %>%
@@ -166,42 +167,41 @@ server <- function(input, output) {
     # Move "sample IDs" (which are currently the new row names) into a column called "SampleID"
     tempGeneData <- data.frame(SampleID=rownames(tempGeneData), tempGeneData)
     
-    # join with metadata
-    
-    fullData <- inner_join(metadata(), tempGeneData, by="SampleID")
+    # join with metaData
+    fullData <- inner_join(metaData(), tempGeneData, by="SampleID")
   })
   
   
   # OBSERVE EVENTS ----
-  observeEvent(metadata(), {
-    choices <- colnames(metadata())
+  observeEvent(metaData(), {
+    choices <- colnames(metaData())
     updateSelectInput(inputId = "sfactors", choices = choices) 
   })
   
-  observeEvent(GeneData(), {
-    choices <- GeneData()$'Well Name'
+  observeEvent(geneData(), {
+    choices <- geneData()$'Well Name'
     updateSelectInput(inputId = "sHK", choices = choices)
   })
   
-  observeEvent(GeneData(), {
-    choices <- GeneData()$'Well Name'
-    updateSelectInput(inputId = "sQC", choices = choices)
+  observeEvent(geneData(), {
+    choices <- geneData()$'Well Name'
+    updateSelectInput(inputId = "sQCG", choices = choices)
   })
   
+  # Test: observeEvent(geneData(), {geneNames <- geneData()$'Well Name'})
   
   # RENDERED OBJECTS
-  
   output$fullTable<-DT::renderDataTable({
     fullTable()
   })
   
   # Normalization plot (NEEDS TO BE FIXED)
   output$QCTable<-DT::renderDataTable({
-    GeneData()
+    geneData()
   })
   
   output$selected <- renderText({
-    paste("Selected:", input$sfactors, ",", input$sHK, ",", input$sQC, ",", input$sQCT, ",", input$highCT, ",", input$lowCT)
+    paste("Selected:", input$sfactors, ",", input$sHK, ",", input$sQCG, ",", input$sQCT, ",", input$lowCT, ",", input$highCT)
   })
   
 }
@@ -211,3 +211,13 @@ shinyApp(ui = ui, server = server)
 
 
 #Create a reactive object called geneNames that collects all the gene list ("Well Name"), EXCLUDING THE ONES I SELECTED (HK, QC genes)
+
+#### OVERALL APP FUNCTIONALITY #####
+# LOAD DATA
+# QUALITY CONTROL CHECK DATA
+# NORMALIZE DATA
+#   - house keeping gene normalization
+#   - TMM normalization
+# Differentially Expressed Gene analysis
+# Principal Component Analysis (PCA)
+# Heat Maps
