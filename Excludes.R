@@ -52,62 +52,62 @@ ui <- fluidPage(
              sidebarLayout(
                #EACH "SELECTION" IS ON ITS OWN LINE EXCEPT sQCG and sQCT, SIDE BY SIDE AND LINKED!
                sidebarPanel(
-               column(12,
-                      selectInput("sfactors", label = strong("Select Factors"), 
-                                  choices = NULL),
-                      
-                      actionButton("addFactor", "Add Another Factor"),
-                      br(),
-                      br(),
-                      
+                 column(12,
+                        selectInput("sfactors", label = strong("Select Factors"), 
+                                    choices = NULL),
+                        
+                        actionButton("addFactor", "Add Another Factor"),
+                        br(),
+                        br(),
+                        
+                 ),
+                 
+                 column(12,
+                        selectInput("sHK", label = strong("Select House Keeping Genes"), 
+                                    choices = NULL),
+                        
+                        actionButton("addHK", "Add Another HK Gene"),
+                        br(),
+                        br(),
+                 ),
+                 fluidRow(
+                   column(6,
+                          selectInput("sQCG", label = strong("Select QC Genes"), 
+                                      choices = NULL),
+                          
+                          actionButton("addQC", "Add Another QC Gene"), # LINK to sQCT
+                          br(),
+                          br(),
+                   ),
+                   
+                   column(6,
+                          selectInput("sQCT", label = strong("Select QC Types"), 
+                                      choices = list("Genomic Contamination", 
+                                                     "PCR Positive", 
+                                                     "Reverse Transcriptase Control",
+                                                     "No Template Control")
+                          ),
+                   ),
+                 ),
+                 
+                 fluidRow(
+                   column(6, 
+                          numericInput("lowCT", label = strong("Filter Genes With Low CT"), value = 1, min=1, max=15)),
+                   
+                   column(6, 
+                          numericInput("highCT", label = strong("Filter Genes With High CT"), value = 25, min=25, max=40)),
+                 ),
+                 
+                 textOutput("selected")
                ),
                
-               column(12,
-                      selectInput("sHK", label = strong("Select House Keeping Genes"), 
-                                  choices = NULL),
-                      
-                      actionButton("addHK", "Add Another HK Gene"),
-                      br(),
-                      br(),
-               ),
-               fluidRow(
-               column(6,
-                      selectInput("sQCG", label = strong("Select QC Genes"), 
-                                  choices = NULL),
-                      
-                      actionButton("addQC", "Add Another QC Gene"), # LINK to sQCT
-                      br(),
-                      br(),
-                      ),
-               
-               column(6,
-                      selectInput("sQCT", label = strong("Select QC Types"), 
-                                  choices = list("Genomic Contamination", 
-                                                 "PCR Positive", 
-                                                 "Reverse Transcriptase Control",
-                                                 "No Template Control")
-                                  ),
-                      ),
+               mainPanel(
+                 DT::dataTableOutput("QCTable")
                ),
                
-               fluidRow(
-               column(6, 
-                      numericInput("lowCT", label = strong("Filter Genes With Low CT"), value = 1, min=1, max=15)),
-               
-               column(6, 
-                      numericInput("highCT", label = strong("Filter Genes With High CT"), value = 25, min=25, max=40)),
-               ),
-              
-                textOutput("selected")
-              ),
-             
-             mainPanel(
-               DT::dataTableOutput("QCTable")
-             ),
-             
-             # Unneeded as that's the sidebarLayout default (mainPanel is on the right)
-             position = c("left", "right")
-          ), 
+               # Unneeded as that's the sidebarLayout default (mainPanel is on the right)
+               position = c("left", "right")
+             ), 
     ),
     
     tabPanel("Page 3", h2("Normalize Data")
@@ -144,7 +144,7 @@ server <- function(input, output) {
     req(input$metaFile)
     read_excel(input$metaFile$datapath)
   })
- 
+  
   #load geneData
   geneData <- reactive({
     req(input$dataFiles)
@@ -228,12 +228,11 @@ server <- function(input, output) {
     )
   })
   
-  observeEvent(geneData(), {
-    choices <- geneData()$'Well Name'
-    updateSelectInput(inputId = "sQCG", choices = choices)
-  })
   
-  # Test: observeEvent(geneData(), {geneNames <- geneData()$'Well Name'})
+  observeEvent(c(input$sHK, geneData()), {
+    geneNames <- setdiff(geneData()$'Well Name', input$sHK)
+    updateSelectInput(inputId = "sQCG", choices = geneNames)
+  })
   
   # RENDERED OBJECTS
   output$fullTable<-DT::renderDataTable({
@@ -253,16 +252,3 @@ server <- function(input, output) {
 
 #### Run the app ####
 shinyApp(ui = ui, server = server)
-
-
-#Create a reactive object called geneNames that collects all the gene list ("Well Name"), EXCLUDING THE ONES I SELECTED (HK, QC genes)
-
-#### OVERALL APP FUNCTIONALITY #####
-# LOAD DATA
-# QUALITY CONTROL CHECK DATA
-# NORMALIZE DATA
-#   - house keeping gene normalization
-#   - TMM normalization
-# Differentially Expressed Gene analysis
-# Principal Component Analysis (PCA)
-# Heat Maps
