@@ -119,8 +119,8 @@ ui <- fluidPage(
 server <- function(input, output) {
   
   # Create a reactiveValues to store the count of added factors
-  addedFactors <- reactiveValues(count = 0)
-  addedHK <- reactiveValues(count = 0)
+  addedFactors <- reactiveValues(count = 1)
+  addedHK <- reactiveValues(count = 1)
   
   observeEvent(input$instrButton, {
     showModal(modalDialog(
@@ -138,7 +138,6 @@ server <- function(input, output) {
   })
   
   # LOAD DATA ----
-  
   # Load metaData
   metaData <- reactive({
     req(input$metaFile)
@@ -158,30 +157,37 @@ server <- function(input, output) {
     combData<- reduce(rawList, left_join, by = 'Well Name')
   })
   
-  # Join metaData and geneData into one table
-  fullTable<-reactive({
-    
+
+  tempGeneData <- reactive({
+    req(geneData())
+    tempData <- geneData()
+  
     # Move gene names into row names so that they become column names when we transform table
-    tempGeneData <- geneData()
-    rownames(tempGeneData)<-tempGeneData$'Well Name'
-    tempGeneData <- tempGeneData %>%
+    rownames(tempData) <- tempData$'Well Name'
+    tempData <- tempData %>%
       dplyr::select(-'Well Name') %>%
       t() 
     
     # Move "sample IDs" (which are currently the new row names) into a column called "SampleID"
-    tempGeneData <- data.frame(SampleID=rownames(tempGeneData), tempGeneData)
+    tempData <- data.frame(SampleID = rownames(tempData), tempData)
+  })  
+    
+  
+  fullTable <- reactive({
+    tempData <- tempGeneData()
     
     # join with metaData
-    fullData <- inner_join(metaData(), tempGeneData, by="SampleID")
+    fullData <- inner_join(metaData(), tempData, by = "SampleID")
   })
   
-  
+    
   # OBSERVE EVENTS ----
   observeEvent(metaData(), {
     choices <- colnames(metaData())
     updateSelectInput(inputId = "sfactors", choices = choices) 
   })
   
+  # Additional Add Factor Drop Down Menus
   observeEvent(input$addFactor, {
     # Increment the count of added factors
     addedFactors$count <- addedFactors$count + 1
@@ -196,18 +202,15 @@ server <- function(input, output) {
                  inputId = paste0("sfactors", addedFactors$count),
                  label = strong(paste("Select Factor ", addedFactors$count)),
                  choices = colnames(metaData())
-               )
-        )
-      )
-    )
+              ))))
   })
   
-  
   observeEvent(geneData(), {
-    choices <- geneData()$'Well Name'
+    choices <- geneData()
     updateSelectInput(inputId = "sHK", choices = choices)
   })
   
+  #Test
   observeEvent(input$addHK, {
     # Increment the count of added HK
     addedHK$count <- addedHK$count + 1
@@ -221,17 +224,18 @@ server <- function(input, output) {
                selectInput(
                  inputId = paste0("sHK", addedHK$count),
                  label = strong(paste("Select House Keeping Genes ", addedHK$count)),
-                 choices = colnames(geneData()$'Well Name') #Doesn't give correct options (using tempGeneData doesn't work as it's not a reactive object)
+                 choices = colnames(tempGeneData()) 
                )
         )
       )
     )
   })
   
+  #Test End
   
-  observeEvent(c(input$sHK, geneData()), {
-    geneNames <- setdiff(geneData()$'Well Name', input$sHK)
-    updateSelectInput(inputId = "sQCG", choices = geneNames)
+  observeEvent(geneData(), {
+    choices <- geneData()$'Well Name'
+    updateSelectInput(inputId = "sQCG", choices = choices)
   })
   
   # RENDERED OBJECTS
@@ -247,7 +251,6 @@ server <- function(input, output) {
   output$selected <- renderText({
     paste("Selected:", input$sfactors, ",", input$sHK, ",", input$sQCG, ",", input$sQCT, ",", input$lowCT, ",", input$highCT)
   })
-  
 }
 
 #### Run the app ####
