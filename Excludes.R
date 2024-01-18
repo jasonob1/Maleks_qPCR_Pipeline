@@ -54,28 +54,42 @@ ui <- fluidPage(
                sidebarPanel(
                  column(12,
                         selectInput("sfactors", label = strong("Select Factors"), 
-                                    choices = NULL),
-                        
-                        actionButton("addFactor", "Add Another Factor"),
-                        br(),
-                        br(),
-                        
+                                    choices = NULL)),
+                 fluidRow( 
+                   column(6,
+                          actionButton("addFactor", "Add Another Factor"),
+                          br(),
+                          br(),
+                   ),
+                   
+                   column(6,
+                          actionButton("rFactor", "Remove Factor")
+                   ),
                  ),
                  
                  column(12,
                         selectInput("sHK", label = strong("Select House Keeping Genes"), 
                                     choices = NULL),
                         
-                        actionButton("addHK", "Add Another HK Gene"),
-                        br(),
-                        br(),
+                        fluidRow( 
+                          column(6,
+                                 actionButton("addHK", "Add Another HK Gene"),
+                                 br(),
+                                 br(),
+                          ),
+                          
+                          column(6,
+                                 actionButton("rHK", "Remove HK Gene")
+                          ),
+                        ),          
+                        
                  ),
                  fluidRow(
                    column(6,
                           selectInput("sQCG", label = strong("Select QC Genes"), 
                                       choices = NULL),
                           
-                          actionButton("addQC", "Add Another QC Gene"), # LINK to sQCT
+                          actionButton("addQC", "Add Another QC Gene"), 
                           br(),
                           br(),
                    ),
@@ -85,17 +99,20 @@ ui <- fluidPage(
                                       choices = list("Genomic Contamination", 
                                                      "PCR Positive", 
                                                      "Reverse Transcriptase Control",
-                                                     "No Template Control")
-                          ),
+                                                     "No Template Control")),
+                          
+                          actionButton("rQC", "Remove QC Gene"), 
+                          br(),
+                          br(), 
                    ),
                  ),
                  
                  fluidRow(
                    column(6, 
-                          numericInput("lowCT", label = strong("Filter Genes With Low CT"), value = 1, min=1, max=15)),
+                          numericInput("lowCT", label = strong("Low CT Cutoff"), value = 1, min=1, max=15)),
                    
                    column(6, 
-                          numericInput("highCT", label = strong("Filter Genes With High CT"), value = 25, min=25, max=40)),
+                          numericInput("highCT", label = strong("High CT Cutoff"), value = 25, min=25, max=40)),
                  ),
                  
                  textOutput("selected")
@@ -117,10 +134,6 @@ ui <- fluidPage(
 
 #### SERVER ####
 server <- function(input, output) {
-  
-  # Create a reactiveValues to store the count of added factors
-  addedFactors <- reactiveValues(count = 1)
-  addedHK <- reactiveValues(count = 1)
   
   observeEvent(input$instrButton, {
     showModal(modalDialog(
@@ -157,30 +170,27 @@ server <- function(input, output) {
     combData<- reduce(rawList, left_join, by = 'Well Name')
   })
   
-
-  tempGeneData <- reactive({
-    req(geneData())
-    tempData <- geneData()
-  
+  # Join metaData and geneData into one table
+  fullTable<-reactive({
+    
     # Move gene names into row names so that they become column names when we transform table
-    rownames(tempData) <- tempData$'Well Name'
-    tempData <- tempData %>%
+    tempGeneData <- geneData()
+    rownames(tempGeneData)<-tempGeneData$'Well Name'
+    tempGeneData <- tempGeneData %>%
       dplyr::select(-'Well Name') %>%
       t() 
     
     # Move "sample IDs" (which are currently the new row names) into a column called "SampleID"
-    tempData <- data.frame(SampleID = rownames(tempData), tempData)
-  })  
-    
-  
-  fullTable <- reactive({
-    tempData <- tempGeneData()
+    tempGeneData <- data.frame(SampleID=rownames(tempGeneData), tempGeneData)
     
     # join with metaData
-    fullData <- inner_join(metaData(), tempData, by = "SampleID")
+    fullData <- inner_join(metaData(), tempGeneData, by="SampleID")
   })
   
-    
+  
+  # Create a reactiveValues to store the count of added factors
+  addedFactors <- reactiveValues(count = 1)
+  
   # OBSERVE EVENTS ----
   observeEvent(metaData(), {
     choices <- colnames(metaData())
@@ -202,15 +212,26 @@ server <- function(input, output) {
                  inputId = paste0("sfactors", addedFactors$count),
                  label = strong(paste("Select Factor ", addedFactors$count)),
                  choices = colnames(metaData())
-              ))))
-  })
-  
-  observeEvent(geneData(), {
-    choices <- geneData()
-    updateSelectInput(inputId = "sHK", choices = choices)
+               )
+        )
+      )
+    )
   })
   
   #Test
+  #observeEvent(input$rFactor, {
+    #addedFactors$count <- NULL
+  #})
+  #Test end
+  
+  addedHK <- reactiveValues(count = 1)
+  
+  observeEvent(geneData(), {
+    choices <- geneData()$'Well Name'
+    updateSelectInput(inputId = "sHK", choices = choices) 
+  })
+  
+  
   observeEvent(input$addHK, {
     # Increment the count of added HK
     addedHK$count <- addedHK$count + 1
@@ -224,19 +245,62 @@ server <- function(input, output) {
                selectInput(
                  inputId = paste0("sHK", addedHK$count),
                  label = strong(paste("Select House Keeping Genes ", addedHK$count)),
-                 choices = colnames(tempGeneData()) 
+                 choices = geneData()$'Well Name' 
                )
         )
       )
     )
   })
   
-  #Test End
+  #Test (works but sHK 2 needs to have the exclusion, not QC)
+  #observeEvent(c(input$sHK, geneData()), {
+    #geneNames <- setdiff(geneData()$'Well Name', input$sHK)
+    #updateSelectInput(inputId = "sQCG", choices = geneNames) 
+  #})
+  #Test end
+  
   
   observeEvent(geneData(), {
     choices <- geneData()$'Well Name'
     updateSelectInput(inputId = "sQCG", choices = choices)
   })
+  
+  addedQC <- reactiveValues(count = 1)
+  addedQCT <- reactiveValues(count = 1)
+  
+  observeEvent(input$addQC, {
+    # Increment the count of added QC
+    addedQC$count <- addedQC$count + 1
+    addedQCT$count <- addedQCT$count + 1
+    
+    # Dynamically render the additional QC dropdown menus
+    insertUI(
+      selector = "#addQC",
+      where = "afterEnd",
+      ui =  
+        fluidRow(
+          column(6,
+                 selectInput(
+                   inputId = paste0("sQCG", addedQC$count),
+                   label = strong(paste("Select QC Genes ", addedQC$count)),
+                   choices = geneData()$'Well Name'
+                 )
+          ), 
+          
+          column(6,
+                 selectInput(
+                   inputId = paste0("sQCT", addedQCT$count),
+                   label = strong(paste("Select QC Types ", addedQCT$count)),
+                   choices = list("Genomic Contamination", 
+                                  "PCR Positive", 
+                                  "Reverse Transcriptase Control",
+                                  "No Template Control")
+                 )
+          )
+        )
+    )
+  })
+  
   
   # RENDERED OBJECTS
   output$fullTable<-DT::renderDataTable({
@@ -246,10 +310,6 @@ server <- function(input, output) {
   # Normalization plot (NEEDS TO BE FIXED)
   output$QCTable<-DT::renderDataTable({
     geneData()
-  })
-  
-  output$selected <- renderText({
-    paste("Selected:", input$sfactors, ",", input$sHK, ",", input$sQCG, ",", input$sQCT, ",", input$lowCT, ",", input$highCT)
   })
 }
 
