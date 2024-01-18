@@ -10,7 +10,7 @@ library(readxl)
 setwd("Practice Data\\Laura's Data")
 allFiles<-list.files()
 metaDataFileName <- "metadata.xlsx" #upload metadata should save here
-dataFiles <- allFiles[!allFiles %in% metaDataFileName]
+dataFiles <- allFiles[!allFiles %in% metaDataFileName] 
 
 
 # load files
