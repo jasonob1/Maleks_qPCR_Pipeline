@@ -21,7 +21,10 @@ ui <- fluidPage(
   theme = bs_theme(version = 4, bootswatch = "journal"),
   
   tabsetPanel(
-    tabPanel("Page 1", h2 ("Import Data"),
+    id = "switch",
+    type = "hidden",
+    
+    tabPanel("page_1", h2("Import Data"),
              
              fluidRow(
                column(width = 12,
@@ -39,7 +42,8 @@ ui <- fluidPage(
                         fileInput("dataFiles", strong("Upload .txt File(s):"),
                                   accept = c(".txt"),
                                   multiple = TRUE),
-                      )
+                      ),
+                      actionButton("page_12", "Next")
                )
              ),
              
@@ -48,50 +52,25 @@ ui <- fluidPage(
              )
     ),
     
-    tabPanel("Page 2", h2("Quality Control"),
+    tabPanel("page_2", h2("Analysis Options"),
              sidebarLayout(
-               #EACH "SELECTION" IS ON ITS OWN LINE EXCEPT sQCG and sQCT, SIDE BY SIDE AND LINKED!
                sidebarPanel(
                  column(12,
                         selectInput("sfactors", label = strong("Select Factors"), 
-                                    choices = NULL)),
-                 fluidRow( 
-                   column(6,
-                          actionButton("addFactor", "Add Another Factor"),
-                          br(),
-                          br(),
-                   ),
-                   
-                   column(6,
-                          actionButton("rFactor", "Remove Factor")
-                   ),
+                                    choices = NULL, multiple = TRUE)
                  ),
+                 
                  
                  column(12,
                         selectInput("sHK", label = strong("Select House Keeping Genes"), 
-                                    choices = NULL),
-                        
-                        fluidRow( 
-                          column(6,
-                                 actionButton("addHK", "Add Another HK Gene"),
-                                 br(),
-                                 br(),
-                          ),
-                          
-                          column(6,
-                                 actionButton("rHK", "Remove HK Gene")
-                          ),
-                        ),          
-                        
+                                    choices = NULL, multiple = TRUE),
+                        actionButton("reset", "Reset")
                  ),
+                 
                  fluidRow(
                    column(6,
                           selectInput("sQCG", label = strong("Select QC Genes"), 
-                                      choices = NULL),
-                          
-                          actionButton("addQC", "Add Another QC Gene"), 
-                          br(),
-                          br(),
+                                      choices = NULL, multiple = TRUE),
                    ),
                    
                    column(6,
@@ -99,11 +78,8 @@ ui <- fluidPage(
                                       choices = list("Genomic Contamination", 
                                                      "PCR Positive", 
                                                      "Reverse Transcriptase Control",
-                                                     "No Template Control")),
-                          
-                          actionButton("rQC", "Remove QC Gene"), 
-                          br(),
-                          br(), 
+                                                     "No Template Control"),
+                                      multiple = TRUE),
                    ),
                  ),
                  
@@ -115,7 +91,8 @@ ui <- fluidPage(
                           numericInput("highCT", label = strong("High CT Cutoff"), value = 25, min=25, max=40)),
                  ),
                  
-                 textOutput("selected")
+                 actionButton("page_21", "Prev"),
+                 actionButton("page_23", "Next")
                ),
                
                mainPanel(
@@ -127,7 +104,8 @@ ui <- fluidPage(
              ), 
     ),
     
-    tabPanel("Page 3", h2("Normalize Data")
+    tabPanel("page_3", h2("Normalize Data"),
+             actionButton("page_32", "Prev")
     )
   )
 )
@@ -149,6 +127,16 @@ server <- function(input, output) {
       removeModal()
     })
   })
+  
+  switch_page <- function(i) {
+    updateTabsetPanel(inputId = "switch", selected = paste0("page_", i))
+  }
+  
+  observeEvent(input$page_12, switch_page(2))
+  observeEvent(input$page_21, switch_page(1))
+  observeEvent(input$page_23, switch_page(3))
+  observeEvent(input$page_32, switch_page(2))
+  
   
   # LOAD DATA ----
   # Load metaData
@@ -188,117 +176,26 @@ server <- function(input, output) {
   })
   
   
-  # Create a reactiveValues to store the count of added factors
-  addedFactors <- reactiveValues(count = 1)
-  
   # OBSERVE EVENTS ----
   observeEvent(metaData(), {
     choices <- colnames(metaData())
     updateSelectInput(inputId = "sfactors", choices = choices) 
   })
   
-  # Additional Add Factor Drop Down Menus
-  observeEvent(input$addFactor, {
-    # Increment the count of added factors
-    addedFactors$count <- addedFactors$count + 1
-    
-    # Dynamically render the additional factor dropdown menu
-    insertUI(
-      selector = "#addFactor",
-      where = "afterEnd",
-      ui = fluidRow(
-        column(12,
-               selectInput(
-                 inputId = paste0("sfactors", addedFactors$count),
-                 label = strong(paste("Select Factor ", addedFactors$count)),
-                 choices = colnames(metaData())
-               )
-        )
-      )
-    )
-  })
-  
-  #Test
-  #observeEvent(input$rFactor, {
-    #addedFactors$count <- NULL
-  #})
-  #Test end
-  
-  addedHK <- reactiveValues(count = 1)
-  
   observeEvent(geneData(), {
     choices <- geneData()$'Well Name'
     updateSelectInput(inputId = "sHK", choices = choices) 
   })
   
-  
-  observeEvent(input$addHK, {
-    # Increment the count of added HK
-    addedHK$count <- addedHK$count + 1
-    
-    # Dynamically render the additional HK dropdown menu
-    insertUI(
-      selector = "#addHK",
-      where = "afterEnd",
-      ui = fluidRow(
-        column(12,
-               selectInput(
-                 inputId = paste0("sHK", addedHK$count),
-                 label = strong(paste("Select House Keeping Genes ", addedHK$count)),
-                 choices = geneData()$'Well Name' 
-               )
-        )
-      )
-    )
+  observeEvent(input$reset, {
+    # Reset the selected options by setting choices to an empty set
+    updateSelectInput(inputId = "sHK", selected = character(0))
   })
-  
-  #Test (works but sHK 2 needs to have the exclusion, not QC)
-  #observeEvent(c(input$sHK, geneData()), {
-    #geneNames <- setdiff(geneData()$'Well Name', input$sHK)
-    #updateSelectInput(inputId = "sQCG", choices = geneNames) 
-  #})
-  #Test end
   
   
   observeEvent(geneData(), {
     choices <- geneData()$'Well Name'
     updateSelectInput(inputId = "sQCG", choices = choices)
-  })
-  
-  addedQC <- reactiveValues(count = 1)
-  addedQCT <- reactiveValues(count = 1)
-  
-  observeEvent(input$addQC, {
-    # Increment the count of added QC
-    addedQC$count <- addedQC$count + 1
-    addedQCT$count <- addedQCT$count + 1
-    
-    # Dynamically render the additional QC dropdown menus
-    insertUI(
-      selector = "#addQC",
-      where = "afterEnd",
-      ui =  
-        fluidRow(
-          column(6,
-                 selectInput(
-                   inputId = paste0("sQCG", addedQC$count),
-                   label = strong(paste("Select QC Genes ", addedQC$count)),
-                   choices = geneData()$'Well Name'
-                 )
-          ), 
-          
-          column(6,
-                 selectInput(
-                   inputId = paste0("sQCT", addedQCT$count),
-                   label = strong(paste("Select QC Types ", addedQCT$count)),
-                   choices = list("Genomic Contamination", 
-                                  "PCR Positive", 
-                                  "Reverse Transcriptase Control",
-                                  "No Template Control")
-                 )
-          )
-        )
-    )
   })
   
   
@@ -307,7 +204,6 @@ server <- function(input, output) {
     fullTable()
   })
   
-  # Normalization plot (NEEDS TO BE FIXED)
   output$QCTable<-DT::renderDataTable({
     geneData()
   })
@@ -315,3 +211,4 @@ server <- function(input, output) {
 
 #### Run the app ####
 shinyApp(ui = ui, server = server)
+
