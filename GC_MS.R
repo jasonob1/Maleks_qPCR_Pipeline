@@ -22,7 +22,7 @@ ui <- fluidPage(
   
   tabsetPanel(
     id = "switch",
-    type = "hidden",
+ 
     
     tabPanel("page_1", h2("Import Data"),
              
@@ -91,8 +91,8 @@ ui <- fluidPage(
                           numericInput("highCT", label = strong("High CT Cutoff"), value = 25, min=25, max=40)),
                  ),
                  
-                 actionButton("page_21", "Prev"),
-                 actionButton("page_23", "Next")
+                 actionButton("page_21", "Return to Import Data"),
+                 actionButton("page_23", "Proceed to QC Report")
                ),
                
                mainPanel(
@@ -104,7 +104,7 @@ ui <- fluidPage(
              ), 
     ),
     
-    tabPanel("page_3", h2("Normalize Data"),
+    tabPanel("page_3", h2("QC Report"),
              actionButton("page_32", "Prev")
     )
   )
