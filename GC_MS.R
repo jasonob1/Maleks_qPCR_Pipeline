@@ -6,7 +6,7 @@ list.of.packages <- c(
   "data.table"
 )
 new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
-if(length(new.packages)) install.packages(new.packages)
+if(length(new.packages)) install.packages(new.packages) 
 
 library(tidyverse)
 library(readxl)
@@ -24,7 +24,7 @@ ui <- fluidPage(
     id = "switch",
  
     
-    tabPanel("page_1", h2("Import Data"),
+    tabPanel("Import Data",
              
              fluidRow(
                column(width = 12,
@@ -42,8 +42,13 @@ ui <- fluidPage(
                         fileInput("dataFiles", strong("Upload .txt File(s):"),
                                   accept = c(".txt"),
                                   multiple = TRUE),
-                      ),
-                      actionButton("page_12", "Next")
+                      fluidRow(
+                        column(width = 12, align = "right",
+                        actionButton("page_12", "Proceed to Analysis Options")
+                      )
+                    )
+                   ),
+                      
                )
              ),
              
@@ -52,7 +57,7 @@ ui <- fluidPage(
              )
     ),
     
-    tabPanel("page_2", h2("Analysis Options"),
+    tabPanel("Analysis Options",
              sidebarLayout(
                sidebarPanel(
                  column(12,
@@ -69,19 +74,24 @@ ui <- fluidPage(
                  
                  fluidRow(
                    column(6,
-                          selectInput("sQCG", label = strong("Select QC Genes"), 
-                                      choices = NULL, multiple = TRUE),
-                   ),
+                          selectInput("sGC", label = strong("Genomic Contamination"), 
+                                      choices = NULL, multiple = TRUE)),
                    
-                   column(6,
-                          selectInput("sQCT", label = strong("Select QC Types"), 
-                                      choices = list("Genomic Contamination", 
-                                                     "PCR Positive", 
-                                                     "Reverse Transcriptase Control",
-                                                     "No Template Control"),
-                                      multiple = TRUE),
-                   ),
-                 ),
+                     column(6,
+                          selectInput("sPP", label = strong("PCR Positive"), 
+                                        choices = NULL, multiple = TRUE)),
+                        ),
+                   
+                   
+                  fluidRow(
+                    column(6,
+                        selectInput("sRTC", label = strong("Reverse Transcriptase Control"), 
+                                          choices = NULL, multiple = TRUE)),
+                    
+                    column(6,
+                        selectInput("sNTC", label = strong("No Template Control"), 
+                                            choices = NULL, multiple = TRUE)),
+                         ),
                  
                  fluidRow(
                    column(6, 
@@ -91,27 +101,44 @@ ui <- fluidPage(
                           numericInput("highCT", label = strong("High CT Cutoff"), value = 25, min=25, max=40)),
                  ),
                  
-                 actionButton("page_21", "Return to Import Data"),
-                 actionButton("page_23", "Proceed to QC Report")
-               ),
+                 
+                 fluidRow(
+                 column (6, actionButton("page_21", "Return to Import Data"), align = "left"),
+                 column (6, actionButton("page_23", "Proceed to QC Report"), align = "right"),
+                 )
+                 
+                 ),
                
-               mainPanel(
-                 DT::dataTableOutput("QCTable")
-               ),
-               
-               # Unneeded as that's the sidebarLayout default (mainPanel is on the right)
-               position = c("left", "right")
+               mainPanel(),
              ), 
     ),
     
-    tabPanel("page_3", h2("QC Report"),
-             actionButton("page_32", "Prev")
+    tabPanel("QC Report",
+             
+             h3("QC Summary"),
+             mainPanel(tableOutput("RTable")),
+             
+             h3("QC Details"),
+             
+             h5("Failed PPC Samples"),
+             mainPanel(tableOutput("FPPCTable")),
+             
+             h5("Failed RTC Samples"),
+             mainPanel(tableOutput("RTCTable")),
+             
+             h5("Failed NTC Samples"),
+             mainPanel(tableOutput("NTCTable")),
+             
+             h5("Failed GCC Samples"),
+             mainPanel(tableOutput("GCCTable")),
+             
+             actionButton("page_32", "Return to Analysis Options")
     )
   )
 )
 
 #### SERVER ####
-server <- function(input, output) {
+server <- function(input, output, session) {
   
   observeEvent(input$instrButton, {
     showModal(modalDialog(
@@ -128,14 +155,15 @@ server <- function(input, output) {
     })
   })
   
-  switch_page <- function(i) {
-    updateTabsetPanel(inputId = "switch", selected = paste0("page_", i))
+ 
+  switch_page <- function(tab_name) {
+    updateTabsetPanel(inputId = "switch", selected = tab_name)
   }
   
-  observeEvent(input$page_12, switch_page(2))
-  observeEvent(input$page_21, switch_page(1))
-  observeEvent(input$page_23, switch_page(3))
-  observeEvent(input$page_32, switch_page(2))
+  observeEvent(input$page_12, {switch_page("Analysis Options")})
+  observeEvent(input$page_21, {switch_page("Import Data")})
+  observeEvent(input$page_23, {switch_page("QC Report")})
+  observeEvent(input$page_32, {switch_page("Analysis Options")})
   
   
   # LOAD DATA ----
@@ -193,10 +221,17 @@ server <- function(input, output) {
   })
   
   
-  observeEvent(geneData(), {
-    choices <- geneData()$'Well Name'
-    updateSelectInput(inputId = "sQCG", choices = choices)
-  })
+  input_ids <- c("sGC", "sPP", "sRTC", "sNTC")
+  update_select_input <- function(input_id) {
+    observe({
+      choices <- c("None", geneData()$'Well Name')
+      updateSelectInput(session, input_id, choices = choices)
+    })
+  }
+  
+  # Apply the function for each input ID
+  lapply(input_ids, update_select_input)
+  
   
   
   # RENDERED OBJECTS
@@ -204,9 +239,81 @@ server <- function(input, output) {
     fullTable()
   })
   
-  output$QCTable<-DT::renderDataTable({
-    geneData()
+  
+  
+  
+  #Page 3 Tables
+  # RTable with custom data
+  RTable <- reactive({
+    highCT <- input$highCT
+    
+    tibble(
+      "Control Type" = c("PCR Positive Control", 
+                         "Reverse Transcription Control", 
+                         "No Template Control", 
+                         "Genomic Contamination Control"),
+      
+      "Purpose" = c("To test if your PCR reactions worked",
+                    "To test if your RT reactions worked", 
+                    "Checks for RNA Contamination",
+                    "Checks for DNA Contamination"),
+      
+      "Pass Criteria" = c("Ct < High Ct Cutoff",
+                          "Ct < High Ct Cutoff",
+                          "Ct > High Ct Cutoff or No Ct",
+                          "Ct > High Ct Cutoff or No Ct"),
+      
+      "Result" = c(fullTable() |> select(all_of(input$sPP)),
+                   "NA"
+                  ) 
+                  #make QC Detail tables first, and just have the Result display everything (don't need to have it test things here)
+    )
   })
+
+  
+  
+  # Render empty table
+  output$RTable <- renderTable({
+    RTable()
+  })
+  
+  
+  detailTable <- reactive({
+    tibble(
+      "Sample ID" = c("NA"),
+      "Gene Name" = c("NA"),
+      "Ct" = c("NA"))
+    #fullTable %>%
+      #select(SampleID, all_of(output$sPP)) %>% #choose what column u want, keep SampleID hardcoded but the other column needs to be universal 
+      #filter() #keeps what rows u want (code needs to keep rows that are higher than CT cutoff)
+    
+  })
+  
+  # FPPCTable with custom data + reactivity
+  #FPPCTable <- reactive({
+    #tibble(
+    #"Sample ID" = c("NA"),
+    #"Well ID" = c("NA"),
+    #"Ct" = c("NA")
+    #)
+  #})
+  
+  output$FPPCTable <- renderTable({
+    detailTable()
+  })
+  
+  output$RTCTable <- renderTable({
+    detailTable()
+  })
+  
+  output$NTCTable <- renderTable({
+    detailTable()
+  })
+  
+  output$GCCTable <- renderTable({
+    detailTable()
+  })
+  
 }
 
 #### Run the app ####
