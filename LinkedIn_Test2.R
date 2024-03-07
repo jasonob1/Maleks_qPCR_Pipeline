@@ -120,12 +120,22 @@ server <- function(input, output, session) {
   
   RTable <- reactive({
     highCT <- input$highCT
-    
-    
     pcr_table = fullTable() |> select(all_of(input$sPP))
-    pcrPositive <- all(pcr_table[input$sPP] < highCT)
-    #pcrEmpty <- any(selected_table[input$sPP] =="" | is.na(selected_table[input$sPP]))
-    pcrResult <- if (pcrPositive) "PASS" else "FAIL" 
+    
+    #checks all values of pcr_table pass
+    pcrPositiveFull <-pcr_table[input$sPP] < highCT & !(pcr_table[input$sPP] =="" | is.na(pcr_table[input$sPP])) 
+    
+    # identify which rows have failed values
+    pcrPositveFailedRows <- apply(pcrPositiveFull,1, FUN=function(x){all(x)})
+    
+    # create summary table with only failed samples
+    pcrPositiveSamples = fullTable() |> select(SampleID, all_of(input$sPP))
+    pcrPostiveFailedDetails <- pcrPositiveSamples[!pcrPositveFailedRows,]
+    
+    
+    
+    
+    pcrResult <- if (all(pcrPositiveFull)) "PASS" else "FAIL" 
     # NEED TO MAKE SOMETHING FOR THE EMPTY CELLS (EMPTY > highCT) (why doesn't 2 lines above work?)
     
     rtc_table = fullTable() |> select(all_of(input$sRTC))
@@ -134,8 +144,11 @@ server <- function(input, output, session) {
     
     
     print(pcr_table)
-    print(pcr_table[input$sPP] < highCT)
-    
+    print(pcrPositiveFull)
+    #print(pcrPositive)
+    print(all(pcrPositiveFull))
+    #print(pcrPositiveFailed)
+    print(pcrPostiveFailedDetails)
     
     tibble(
       "Control Type" = c("PCR Positive Control", 
