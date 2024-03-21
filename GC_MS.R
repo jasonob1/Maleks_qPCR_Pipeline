@@ -121,16 +121,16 @@ ui <- fluidPage(
              h3("QC Details"),
              
              h5("Failed PPC Samples"),
-             mainPanel(tableOutput("FPPCTable")),
+             mainPanel(tableOutput("failedPcrTable")),
              
              h5("Failed RTC Samples"),
-             mainPanel(tableOutput("RTCTable")),
+             mainPanel(tableOutput("failedRtcTable")),
              
              h5("Failed NTC Samples"),
-             mainPanel(tableOutput("NTCTable")),
+             mainPanel(tableOutput("failedNtcTable")),
              
              h5("Failed GCC Samples"),
-             mainPanel(tableOutput("GCCTable")),
+             mainPanel(tableOutput("failedGcTable")),
              
              actionButton("page_32", "Return to Analysis Options")
     )
@@ -240,12 +240,59 @@ server <- function(input, output, session) {
   })
   
   
+  fPCR <- reactiveVal()
+  fRTC <- reactiveVal()
+  fNTC <- reactiveVal()
+  fGC <- reactiveVal()
   
   
   #Page 3 Tables
-  # RTable with custom data
   RTable <- reactive({
     highCT <- input$highCT
+    pcrTable <- fullTable() %>% select(all_of(input$sPP))
+    
+    #checks all values of pcrTable pass
+    pcrPositiveFull <- pcrTable[input$sPP] < highCT & !(pcrTable[input$sPP] == "" | is.na(pcrTable[input$sPP])) 
+    
+    # identify which rows have failed values
+    pcrPositiveFailedRows <- apply(pcrPositiveFull,1, FUN=function(x){all(x)})
+    
+    # create summary table with only failed samples
+    pcrPositiveSamples <- fullTable() %>% select(SampleID, all_of(input$sPP))
+    pcrPositiveFailedDetails <- pcrPositiveSamples[!pcrPositiveFailedRows,]
+    
+    #Updates fPCR values
+    fPCR(pcrPositiveFailedDetails)
+    
+    pcrResult <- if (all(pcrPositiveFull)) "PASS" else "FAIL" 
+    
+    
+    rtcTable <- fullTable() %>% select(all_of(input$sRTC))
+    rtcPositiveFull <- rtcTable[input$sRTC] < highCT & !(rtcTable[input$sRTC] == "" | is.na(rtcTable[input$sRTC]))
+    rtcPositiveFailedRows <- apply(rtcPositiveFull,1, FUN=function(x){all(x)})
+    rtcPositiveSamples <- fullTable() %>% select(SampleID, all_of(input$sRTC))
+    rtcPositiveFailedDetails <- rtcPositiveSamples[!rtcPositiveFailedRows,]
+    fRTC(rtcPositiveFailedDetails)
+    rtcResult <- if (all(rtcPositiveFull)) "PASS" else "FAIL" 
+    
+    
+    ntcTable <- fullTable() %>% select(all_of(input$sNTC))
+    ntcPositiveFull <- ntcTable[input$sNTC] > highCT & !(ntcTable[input$sNTC] == "" | is.na(ntcTable[input$sNTC]))
+    ntcPositiveFailedRows <- apply(ntcPositiveFull,1, FUN=function(x){all(x)})
+    ntcPositiveSamples <- fullTable() %>% select(SampleID, all_of(input$sNTC))
+    ntcPositiveFailedDetails <- ntcPositiveSamples[!ntcPositiveFailedRows,]
+    fNTC(ntcPositiveFailedDetails)
+    ntcResult <- if (all(ntcPositiveFull)) "PASS" else "FAIL"
+    
+
+    gcTable <- fullTable() %>% select(all_of(input$sGC))
+    gcPositiveFull <- gcTable[input$sGC] > highCT & !(gcTable[input$sGC] == "" | is.na(gcTable[input$sGC]))
+    gcPositiveFailedRows <- apply(gcPositiveFull,1, FUN=function(x){all(x)})
+    gcPositiveSamples <- fullTable() %>% select(SampleID, all_of(input$sGC))
+    gcPositiveFailedDetails <- gcPositiveSamples[!gcPositiveFailedRows,]
+    fGC(gcPositiveFailedDetails)
+    gcResult <- if (all(gcPositiveFull)) "PASS" else "FAIL"
+    
     
     tibble(
       "Control Type" = c("PCR Positive Control", 
@@ -263,55 +310,29 @@ server <- function(input, output, session) {
                           "Ct > High Ct Cutoff or No Ct",
                           "Ct > High Ct Cutoff or No Ct"),
       
-      "Result" = c(fullTable() |> select(all_of(input$sPP)),
-                   "NA"
-                  ) 
-                  #make QC Detail tables first, and just have the Result display everything (don't need to have it test things here)
+      "Result" = c(pcrResult, rtcResult, ntcResult, gcResult) 
     )
   })
 
   
-  
-  # Render empty table
   output$RTable <- renderTable({
     RTable()
   })
   
-  
-  detailTable <- reactive({
-    tibble(
-      "Sample ID" = c("NA"),
-      "Gene Name" = c("NA"),
-      "Ct" = c("NA"))
-    #fullTable %>%
-      #select(SampleID, all_of(output$sPP)) %>% #choose what column u want, keep SampleID hardcoded but the other column needs to be universal 
-      #filter() #keeps what rows u want (code needs to keep rows that are higher than CT cutoff)
-    
+  output$failedPcrTable <- renderTable({
+    fPCR()
   })
   
-  # FPPCTable with custom data + reactivity
-  #FPPCTable <- reactive({
-    #tibble(
-    #"Sample ID" = c("NA"),
-    #"Well ID" = c("NA"),
-    #"Ct" = c("NA")
-    #)
-  #})
-  
-  output$FPPCTable <- renderTable({
-    detailTable()
+  output$failedRtcTable <- renderTable({
+    fRTC()
   })
   
-  output$RTCTable <- renderTable({
-    detailTable()
+  output$failedNtcTable <- renderTable({
+    fNTC()
   })
   
-  output$NTCTable <- renderTable({
-    detailTable()
-  })
-  
-  output$GCCTable <- renderTable({
-    detailTable()
+  output$failedGcTable <- renderTable({
+    fGC()
   })
   
 }
