@@ -328,6 +328,8 @@ server <- function(input, output, session) {
     fPCR() 
   })
   
+  #Color change: https://stackoverflow.com/questions/50798941/r-shiny-rendertable-change-cell-colors
+  
   output$failedRtcTable <- renderTable({
     fRTC()
   })
