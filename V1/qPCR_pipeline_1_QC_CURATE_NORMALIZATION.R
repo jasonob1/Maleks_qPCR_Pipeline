@@ -1,13 +1,4 @@
-#### INSTALL EDGER FROM BIOCONDUCTOR ####
-# ONLY NEED TO DO THIS THE FIRST TIME
-if (!require("BiocManager", quietly = TRUE))
-  install.packages("BiocManager")
-
-BiocManager::install("edgeR")
-
-
 #### LOAD LIBRARIES AND FUNCTION SOURCE CODE ####
-# NOTE = you will need to install these, one at a time, the first time you run this script (Tools -> install packages)
 library(tidyverse)
 library(readxl)
 library(EnvStats) # for geoMean function
@@ -21,71 +12,62 @@ source("qPCR_pipeline_functions.R")
 
 
 #### IMPORT DATA FROM TAB DELIMITED TEXT FILE ####
-dataFile <- "C:\\Users\\ObrienJas\\Documents\\R\\qPCR_array_stats\\Data\\Laura - AOSR Wetlands\\wl_qpcr_data.xlsx"
+dataFile <- "PracticeData(Lauras).txt"
 rawData <- read.table(dataFile, header = TRUE, stringsAsFactors = FALSE, sep="\t", na.strings="No Ct", strip.white=TRUE) %>% as_tibble()
 
+# NOTE: In addition to the "sample" and "site" columns, this table has TWO additional and mandatory columns called "experiment" and "type"
 
-#### IMPORT DATA FROM EXCEL SPREADSHEET FILE ####
-dataFile <- "C:\\Users\\ObrienJas\\Documents\\R\\qPCR_array_stats\\Data\\Laura - AOSR Wetlands\\wl_qpcr_data.xlsx"
-rawData <- read_xlsx(dataFile, na="No Ct")
- 
 
 #### CURATE DATA ####
 curData <- rawData    # make a copy to manipulate
 
-# remove any unwanted samples
-curData <- curData %>%
-  filter(Year==1999)
+# remove any unwanted samples  ### NOT NEEDED IN V1.0 of qPCR App (commented out)
+# curData <- curData %>%
+#  filter(Year==1999)
 
-# remove any outlier samples
-curData <- curData %>%
-  filter(!sample%in%("SGL_99_29")) 
+# remove any outlier samples  ### NOT NEEDED IN V1.0 of qPCR App (commented out)
+# curData <- curData %>%
+#   filter(!sample%in%("SGL_99_29")) 
 
-# remove any unwanted columns
-curData <- curData %>%
-  select(-c("Notes"))
+# remove any unwanted columns  ### NOT NEEDED IN V1.0 of qPCR App (commented out)
+# curData <- curData %>%
+#   select(-c("Notes"))
 
 # identify total number of remaining samples
-nSamples<- curData %>% nrow()
-
+nSamples<- curData %>% nrow() #MS: COUNTING ROWS
 
 
 #### CURATE FACTORS ####
 
-# covert to factors and specify any orders
-curData <- curData %>%
-  mutate(site = factor(site))
-  
-# convert continuous value to a binned factor
-curData <- curData %>%
-  mutate(ThreshBins = cut(Threshold, breaks = c(0,0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6))) %>%
-  mutate(ThreshBins = factor(ThreshBins))
-
 # identify "experimental factors" (to differentiate from gene columns)
-expFactors <- c("site","time", "type")
+expFactors <- c("site","type") #MS: IDENTIFYING FACTORS (ALREADY DID THIS BUT DID NOT HARDWIRE)
+
+# covert to factors and specify any orders
+curData <- curData %>% 
+  mutate(site = factor(site)) #MS: CONVERTS THE SELECTED EXPERIMENTAL FACTORS INTO FACTORS
 
 #  ANOVA factors (to use for statistical analysis)
-aovFactor <- c("site")
+aovFactor <- c("site") #MS: MIGHT NOT USE THIS, WE'LL SEE (IF WE DON'T, MAKE SURE TO CHANGE A LOT IN THE SCRIPT SO IT WORKS)
 
 
 #### CURATE GENES ####
 
 # Identify Housekeeping Genes
-hkGenes <- c("RPL4", "EEF1A1")
+hkGenes <- c("RPL4", "EEF1A1") #MS: IT'S HARDCODED, CHANGE SO IT GOES BASED OFF WHAT'S SELECTED 
 
 # identy and remove QC genes
-qcGenes<-c("GGDC", "RTC", "PPC")
-curData<-cleanQC(curData, qcGenes)
+qcGenes<-c("GGDC", "RTC", "PPC") 
+curData<-cleanQC(curData, qcGenes) #MS: ORGANIZES THE TABLE IN A CERTAIN WAY
 
 # Identifies all of the "Gene" columns "ctCols" function # RUN EVERYTIME
-rawCtCols<-names(curData)[!names(curData)%in%c("sample", "experiment", "type", "flagNoCt", "flagHigh", expFactors)]
+rawCtCols<-names(curData)[!names(curData)%in%c("sample", "experiment", "type", "flagNoCt", "flagHigh", expFactors)] #MS: IDENTIFIES EVERY COLUMN THAT ARE GENES (NOT SAMPLE_ID, NOT SITE), LIKE sHK
 
 # reorder genes alphabetically (easier to look through final results)
 gOrder<-ctCols(curData) %>%
-  order() %>%
-  ctCols(curData)[.]
+  order() %>% #MS: MAKES THE GENE LIST ALPHABETICAL ORDER
+  ctCols(curData)[.] #MS: THAT'S A CUSTOM FUNCTION (ctCols), YOU'LL FIND IT IN THE OTHER SCRIPT, IT JUST TAKES THE LIST OF GENES THAT WE DID NOT USE (rawCtCols so line 63)
 curData <- curData %>%
-  select_at(c("sample", "experiment", expFactors, gOrder))
+  select_at(c("sample", "experiment", expFactors, gOrder)) 
 
 
 #### FILTER GENES ####
@@ -199,7 +181,7 @@ curData$hkCheck
 y_lims<-curData %>%
   unnest(data) %>%
   ungroup %>%
-  select_at(all_of(hkGenes)) %>%
+  select(all_of(hkGenes)) %>%
   range()
 y_lims<-y_lims + c(-0.5,0.5)
 
@@ -226,7 +208,7 @@ ggarrange(plotlist = plots, nrow=length(hkGenes))
 
 
 ### NORMALIZATION ###
-normMethod <- "TMM"   # "HK" or "TMM"
+normMethod <- "HK"   # Choose between two normalization methods "HK" (housekeeping genes) or "TMM" (Trimmed M means)
 
 # NORMLAIZE TO HOUSE KEEPING GENES ---------------------
 if(normMethod=="HK"){
@@ -266,70 +248,74 @@ plotData%>%
 
 
 #plot after HK normalization
-plotData<-curData %>%
-  unnest(dctData) %>%
-  ungroup() %>%
-  select_at(ctCols(.)) %>%
-  as.data.frame()
-
-row.names(plotData)<-curData %>%
-  unnest(data) %>%
-  ungroup() %>%
-  dplyr::select(sample)%>%
-  unlist() %>%
-  make.names(unique=TRUE)
-
-plotData%>%
-  t %>%
-  data.frame %>%
-  stack %>%
-  plot(formula=values~ind, data=.)
-
+if(normMethod=="HK"){
+  plotData<-curData %>%
+    unnest(dctData) %>%
+    ungroup() %>%
+    select_at(ctCols(.)) %>%
+    as.data.frame()
+  
+  row.names(plotData)<-curData %>%
+    unnest(data) %>%
+    ungroup() %>%
+    dplyr::select(sample)%>%
+    unlist() %>%
+    make.names(unique=TRUE)
+  
+  plotData%>%
+    t %>%
+    data.frame %>%
+    stack %>%
+    plot(formula=values~ind, data=.)
+}
 
 #plot after TMM normalization
-plotData<-curData %>%
-  unnest(expdctData) %>%
-  ungroup() %>%
-  select_at(ctCols(.)) %>%
-  mutate_all(~-log(.,2)) %>%
-  as.data.frame()
-
-row.names(plotData)<-curData %>%
-  unnest(data) %>%
-  ungroup() %>%
-  dplyr::select(sample)%>%
-  unlist() %>%
-  make.names(unique=TRUE)
-
-plotData%>%
-  t %>%
-  data.frame %>%
-  stack %>%
-  plot(formula=values~ind, data=.)
-
+if(normMethod=="TMM"){
+  plotData<-curData %>%
+    unnest(expdctData) %>%
+    ungroup() %>%
+    select_at(ctCols(.)) %>%
+    mutate_all(~-log(.,2)) %>%
+    as.data.frame()
+  
+  row.names(plotData)<-curData %>%
+    unnest(data) %>%
+    ungroup() %>%
+    dplyr::select(sample)%>%
+    unlist() %>%
+    make.names(unique=TRUE)
+  
+  plotData%>%
+    t %>%
+    data.frame %>%
+    stack %>%
+    plot(formula=values~ind, data=.)
+}
 
 #### POST NORM PCA ####
 
 # PCA Model
 
 # for HK Normalization
-pcaData<-curData %>%
-  unnest(dctData) %>%
-  ungroup()
-PCA <- pcaData %>% 
-  select(all_of(ctCols(.))) %>% # retain only gene columns
-  prcomp(scale. = TRUE) # do PCA on scaled data
-
+if(normMethod=="HK"){
+  pcaData<-curData %>%
+    unnest(dctData) %>%
+    ungroup()
+  PCA <- pcaData %>% 
+    select(all_of(ctCols(.))) %>% # retain only gene columns
+    prcomp(scale. = TRUE) # do PCA on scaled data
+}
 # for TMM normalization
-pcaData<-curData %>%
-  unnest(expdctData) %>%
-  ungroup()
-
-PCA <- pcaData %>% 
-  select(all_of(ctCols(.))) %>% # retain only gene columns
-  mutate_all(~-log(.,2)) %>%
-  prcomp(scale. = TRUE) # do PCA on scaled data
-
+if(normMethod=="TMM"){
+  pcaData<-curData %>%
+    unnest(expdctData) %>%
+    ungroup()
+  
+  PCA <- pcaData %>% 
+    select(all_of(ctCols(.))) %>% # retain only gene columns
+    mutate_all(~-log(.,2)) %>%
+    prcomp(scale. = TRUE) # do PCA on scaled data
+}
 
 # Plot Variance Captured
 fviz_screeplot(PCA, ncp=19, geom=c("bar"), addlabels = TRUE)
