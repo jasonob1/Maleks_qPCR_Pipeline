@@ -104,7 +104,7 @@ ui <- fluidPage(
                  
                  fluidRow(
                  column (6, actionButton("page_21", "Return to Import Data"), align = "left"),
-                 column (6, actionButton("page_23", "Proceed to QC Report"), align = "right"),
+                 column (6, actionButton("page_23", "Proceed to QC Genes"), align = "right"),
                  )
                  
                  ),
@@ -113,7 +113,7 @@ ui <- fluidPage(
              ), 
     ),
     
-    tabPanel("QC Report",
+    tabPanel("QC Genes",
              
              h3("QC Summary"),
              mainPanel(tableOutput("RTable")),
@@ -129,11 +129,16 @@ ui <- fluidPage(
              h5("Failed NTC Samples"),
              mainPanel(tableOutput("failedNtcTable")),
              
-             h5("Failed GCC Samples"),
+             h5("Failed GC Samples"),
              mainPanel(tableOutput("failedGcTable")),
              
              actionButton("page_32", "Return to Analysis Options")
-    )
+    ),
+    
+    tabPanel("High/LowCT",
+             mainPanel(tableOutput("CTtable")),
+             mainPanel(tableOutput("PrptTable")),
+             )
   )
 )
 
@@ -162,7 +167,7 @@ server <- function(input, output, session) {
   
   observeEvent(input$page_12, {switch_page("Analysis Options")})
   observeEvent(input$page_21, {switch_page("Import Data")})
-  observeEvent(input$page_23, {switch_page("QC Report")})
+  observeEvent(input$page_23, {switch_page("QC Genes")})
   observeEvent(input$page_32, {switch_page("Analysis Options")})
   
   
@@ -320,7 +325,7 @@ server <- function(input, output, session) {
   })
   
   output$failedPcrTable <- renderTable({
-    fPCR()
+    fPCR() 
   })
   
   output$failedRtcTable <- renderTable({
@@ -335,6 +340,76 @@ server <- function(input, output, session) {
     fGC()
   })
   
+
+  failedPcrInfo <- reactiveVal(character(0))
+  failedRtcInfo <- reactiveVal(character(0))
+  failedNtcInfo <- reactiveVal(character(0))
+  failedGcInfo <- reactiveVal(character(0))
+  
+ 
+  observe({
+    failedPcrInfo(names(fPCR())[-1]) #removes "SampleID" from fPCR table
+    failedRtcInfo(names(fRTC())[-1])
+    failedNtcInfo(names(fNTC())[-1])  
+    failedGcInfo(names(fGC())[-1]) 
+  })
+  
+  geneNameHighCT <- reactive({
+    geneNames <- c()
+    if (length(failedPcrInfo()) > 0) {
+      geneNames <- c(geneNames, failedPcrInfo())
+    }
+    if (length(failedRtcInfo()) > 0) {
+      geneNames <- c(geneNames, failedRtcInfo())
+    }
+    ifelse(length(geneNames) > 0,
+           paste(geneNames, collapse = ", "),
+           "None")
+  })
+  
+  geneNameLowCT <- reactive({
+    geneNames <- c()
+    if (length(failedNtcInfo()) > 0) {
+      geneNames <- c(geneNames, failedNtcInfo())
+    }
+    if (length(failedGcInfo()) > 0) {
+      geneNames <- c(geneNames, failedGcInfo())
+    }
+    ifelse(length(geneNames) > 0,
+           paste(geneNames, collapse = ", "),
+           "None")
+  })
+
+  CTtable <- reactive({
+    
+    tibble(
+      "Control Type" = c("High CT", "Low CT"),
+      "Pass Criteria" = c("Ct < High Ct Cutoff", "Ct > Low Ct Cutoff"),
+      "Cutoff" = c(input$highCT, input$lowCT),
+      "Failed Gene(s)" = c(geneNameHighCT(), geneNameLowCT()), #Even if gene selected has nothing failed, gene name still appears
+    )
+  })
+  
+  PrptTable <- reactive({
+    highCT_genes <- strsplit(geneNameHighCT(), ", ")[[1]] 
+    lowCT_genes <- strsplit(geneNameLowCT(), ", ")[[1]]   
+    
+    tibble(
+    "Gene Name" = c(highCT_genes, lowCT_genes),
+    "% Failed" = c("H") #Proportion calculation needs to be done here 
+    )
+  })
+  
+  
+  output$CTtable <- renderTable({
+    CTtable()
+  })
+  #MAKE A HIGH/LOWCT TABLE THAT INCLUDES GENES THAT FAILED BY OVER 50% (INCLUDES GENE NAME + CT VALUES)
+  #MAKE 2ND TABLE THAT INCLUDES % OF THAT GENE THAT FAILED (SEE IF YOU CAN ADD IT AS A COLUMN TO THE THE TABLE ^ )
+  
+  output$PrptTable <- renderTable({
+    PrptTable()
+  })
 }
 
 #### Run the app ####
